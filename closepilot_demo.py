@@ -662,6 +662,45 @@ with tab_architecture:
     })
     st.dataframe(comparison_df, use_container_width=True, hide_index=True)
 
+    # ── vs SAP Financial Closing Assistant ─
+    st.markdown("---")
+    st.subheader("🆚 vs SAP Financial Closing Assistant")
+    st.caption("评委关注点：与SAP原生月结自动化能力的区别")
+
+    st.markdown("""
+> **一句话：SAP FCA 是“月结的项目经理”——告诉你该做什么、做到哪了；ClosePilot 是“月结的数字员工”——听懂你要什么，然后自己去干。**
+    """)
+
+    sap_compare_df = pd.DataFrame({
+        "对比维度": ["产品定位", "核心能力", "操作方式", "系统范围", "智能程度", "扩展方式", "月结周期"],
+        "SAP Financial Closing Assistant": [
+            "月结任务管理工具",
+            "列清单、分配任务、跟踪进度、发提醒",
+            "人在SAP里手动操作，FCA只负责跟踪",
+            "仅SAP内部",
+            "规则驱动，无AI决策",
+            "需ABAP开发",
+            "5-7天（人操作）"
+        ],
+        "ClosePilot": [
+            "月结自主执行Agent",
+            "理解指令→拆解任务→跨系统自动执行→校验结果",
+            "自然语言下达指令，Agent代替人操作",
+            "SAP + 银行 + 税务 + CRM 跨系统编排",
+            "多Agent协同，自主纠错，Human-in-the-Loop",
+            "对话式配置，零代码",
+            "2天（Agent执行）"
+        ],
+    })
+    st.dataframe(sap_compare_df, use_container_width=True, hide_index=True)
+
+    st.markdown("""
+**关键提升点：**
+- SAP FCA 解决了**“管理可见性”**问题（知道谁在做什么、进度如何），但**操作仍靠人工**
+- ClosePilot 进一步解决了**“执行自动化”**问题——Agent理解财务语义，跨系统自主完成操作
+- 两者**互补而非替代**：ClosePilot可对接FCA的任务管理，在其基础上叠加AI执行层
+    """)
+
 # ═══════════════════════════════════════
 # Tab 4: ROI 计算器
 # ═══════════════════════════════════════
