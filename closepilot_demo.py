@@ -662,14 +662,15 @@ with tab_architecture:
     })
     st.dataframe(comparison_df, use_container_width=True, hide_index=True)
 
-    # ── vs SAP Financial Closing Assistant ─
+    # ── SAP Financial Closing Assistant 对比 ─
     st.markdown("---")
-    st.subheader("🆚 vs SAP Financial Closing Assistant")
-    st.caption("评委关注点：与SAP原生月结自动化能力的区别")
-
-    st.markdown("""
-> **一句话：SAP FCA 是“月结的项目经理”——告诉你该做什么、做到哪了；ClosePilot 是“月结的数字员工”——听懂你要什么，然后自己去干。**
-    """)
+    st.subheader("SAP Financial Closing Assistant 对比")
+    st.caption("与SAP原生月结自动化能力的差异化对比")
+    
+    st.info(
+        "💡 SAP FCA 是「月结的项目经理」——告诉你该做什么、做到哪了；"
+        "ClosePilot 是「月结的数字员工」——听懂你要什么，然后自己去干。"
+    )
 
     sap_compare_df = pd.DataFrame({
         "对比维度": ["产品定位", "核心能力", "操作方式", "系统范围", "智能程度", "扩展方式", "月结周期"],
@@ -694,12 +695,10 @@ with tab_architecture:
     })
     st.dataframe(sap_compare_df, use_container_width=True, hide_index=True)
 
-    st.markdown("""
-**关键提升点：**
-- SAP FCA 解决了**“管理可见性”**问题（知道谁在做什么、进度如何），但**操作仍靠人工**
-- ClosePilot 进一步解决了**“执行自动化”**问题——Agent理解财务语义，跨系统自主完成操作
-- 两者**互补而非替代**：ClosePilot可对接FCA的任务管理，在其基础上叠加AI执行层
-    """)
+    st.markdown("**关键提升点：**")
+    st.markdown("- SAP FCA 解决了「管理可见性」问题（知道谁在做什么、进度如何），但操作仍靠人工")
+    st.markdown("- ClosePilot 进一步解决了「执行自动化」问题——Agent理解财务语义，跨系统自主完成操作")
+    st.markdown("- 两者互补而非替代：ClosePilot可对接FCA的任务管理，在其基础上叠加AI执行层")
 
 # ═══════════════════════════════════════
 # Tab 4: ROI 计算器
