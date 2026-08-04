@@ -591,12 +591,28 @@ with tab_dashboard:
             st.rerun()
 
     if st.session_state.demo_phase == "confirm":
-        sub = st.session_state.demo_sub
         idx = st.session_state.demo_step_idx
         step = MONTH_END_STEPS[idx]
 
-        if sub == "start":
-            time.sleep(1.0)
+        # 显示Human-in-the-Loop确认对话框
+        st.markdown("---")
+        st.warning(
+            f" **Human-in-the-Loop** — Step {step['id']}「{step['name']}」为高风险操作，"
+            f"Agent已暂停执行，等待财务人员确认。"
+        )
+
+        confirm_col1, confirm_col2 = st.columns([1, 3])
+        with confirm_col1:
+            confirm_clicked = st.button(
+                "✅ 确认执行",
+                type="primary",
+                use_container_width=True,
+                key="confirm_btn"
+            )
+        with confirm_col2:
+            st.caption("这是ClosePilot的安全机制：AI自主决策 + 人工把关高风险节点")
+
+        if confirm_clicked:
             st.session_state.process_status[step["id"]] = "done"
             st.session_state.demo_phase = "running"
             st.session_state.demo_step_idx = idx + 1
