@@ -21,11 +21,19 @@ SYSTEM_PROMPT = """你是ClosePilot，一个专业的SAP智能月结Agent。你�
 3. 报表生成：资产负债表、利润表、现金流量表
 4. 凭证管理：凭证完整性检查、凭证查询
 
-回复风格：
-- 以Planner Agent身份先分析任务、拆解步骤
-- 调用Executor Agent执行具体操作
-- 调用Validator Agent校验结果
-- 用简洁专业的语言回复，附带操作状态和数据"""
+你必须严格按照以下JSON格式回复，不要输出其他内容：
+[
+  {"agent": "planner", "content": "简短的分析内容，1-2句话"},
+  {"agent": "executor", "content": "简短的执行内容，1-2句话"},
+  {"agent": "validator", "content": "简短的校验内容，1-2句话"}
+]
+
+规则：
+- 至少5条，最多10条，逐步展示流程
+- agent按顺序循环：planner → executor → validator → executor → validator → ...
+- 每条content控制在30-80字，简洁专业
+- 包含具体的SAP T-Code、数据量、金额等细节
+- 最后一条用system agent做总结"""
 
 # ── 页面配置 ──
 st.set_page_config(
@@ -192,6 +200,7 @@ DEFAULT_RESPONSE = [
 
 def call_qwen_api(user_msg: str) -> list:
     """调用通义千问API，返回多Agent格式的回复列表"""
+    import json as _json
     try:
         response = Generation.call(
             model="qwen-plus",
@@ -202,9 +211,20 @@ def call_qwen_api(user_msg: str) -> list:
             result_format="message"
         )
         if response.status_code == 200 and response.output.choices:
-            ai_text = response.output.choices[0].message.content
-            # 将AI回复拆分为多Agent步骤
-            return [("planner", f" AI分析：{ai_text[:200]}...")]
+            ai_text = response.output.choices[0].message.content.strip()
+            # 尝试解析JSON数组
+            if ai_text.startswith("["):
+                steps = _json.loads(ai_text)
+                return [(s["agent"], s["content"]) for s in steps if "agent" in s and "content" in s]
+            # 如果不是JSON，尝试从markdown代码块中提取
+            if "```" in ai_text:
+                json_str = ai_text.split("```")[1].strip()
+                if json_str.startswith("json"):
+                    json_str = json_str[4:].strip()
+                steps = _json.loads(json_str)
+                return [(s["agent"], s["content"]) for s in steps if "agent" in s and "content" in s]
+            # 兜底：将整段文本作为planner回复
+            return [("planner", ai_text[:300])]
         return None
     except Exception:
         return None
@@ -399,7 +419,7 @@ with tab_chat:
             st.session_state.chat_processing = True
             st.rerun()
 
-        if st.session_state.chat_processing and st.session_state.chat_responses:
+        if st.session_state.chat_processing and st.session_state.chat_responses is not None:
             idx = st.session_state.chat_response_idx
             if idx < len(st.session_state.chat_responses):
                 agent_type, content = st.session_state.chat_responses[idx]
@@ -546,18 +566,18 @@ with tab_dashboard:
 
             # 高风险步骤进入确认状态
             if step["risk"] == "高":
-                time.sleep(1.2)
+                time.sleep(0.5)
                 st.session_state.process_status[step["id"]] = "confirm"
                 st.session_state.demo_phase = "confirm"
                 st.rerun()
 
-                time.sleep(1.0)
+                time.sleep(0.3)
                 st.session_state.process_status[step["id"]] = "done"
                 st.session_state.demo_phase = "running"
                 st.session_state.demo_step_idx = idx + 1
                 st.rerun()
             else:
-                time.sleep(0.8)
+                time.sleep(0.3)
                 st.session_state.process_status[step["id"]] = "done"
                 st.session_state.demo_step_idx = idx + 1
                 st.rerun()
