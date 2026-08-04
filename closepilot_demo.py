@@ -125,6 +125,8 @@ if "demo_step_idx" not in st.session_state:
     st.session_state.demo_step_idx = -1
 if "demo_phase" not in st.session_state:
     st.session_state.demo_phase = "idle"  # idle, running, confirm, done
+if "demo_sub" not in st.session_state:
+    st.session_state.demo_sub = "start"  # start → wait → advance
 if "roi_revenue" not in st.session_state:
     st.session_state.roi_revenue = 50
 if "roi_employees" not in st.session_state:
@@ -507,6 +509,7 @@ with tab_dashboard:
         st.session_state.process_status = {}
         st.session_state.demo_step_idx = -1
         st.session_state.demo_phase = "idle"
+        st.session_state.demo_sub = "start"
         st.rerun()
 
     # 流程步骤展示
@@ -550,39 +553,55 @@ with tab_dashboard:
         </div>
         """, unsafe_allow_html=True)
 
-    # 演示推进逻辑：每次rerun推进一步
+    # 演示推进逻辑：状态机，每次rerun推进一步
     if start_demo and st.session_state.demo_phase == "idle":
         st.session_state.demo_phase = "running"
         st.session_state.demo_step_idx = 0
+        st.session_state.demo_sub = "start"
         st.rerun()
 
     if st.session_state.demo_phase == "running":
         idx = st.session_state.demo_step_idx
-        if idx < total_steps:
-            step = MONTH_END_STEPS[idx]
-            # 标记当前步骤为执行中
-            st.session_state.process_status[step["id"]] = "running"
+        sub = st.session_state.demo_sub
+
+        if idx >= total_steps:
+            st.session_state.demo_phase = "done"
             st.rerun()
 
-            # 高风险步骤进入确认状态
+        step = MONTH_END_STEPS[idx]
+
+        if sub == "start":
+            # 标记当前步骤为执行中
+            st.session_state.process_status[step["id"]] = "running"
+            st.session_state.demo_sub = "wait"
+            st.rerun()
+
+        elif sub == "wait":
+            # 等待后更新状态
             if step["risk"] == "高":
-                time.sleep(0.5)
+                time.sleep(1.2)
                 st.session_state.process_status[step["id"]] = "confirm"
                 st.session_state.demo_phase = "confirm"
-                st.rerun()
-
-                time.sleep(0.3)
-                st.session_state.process_status[step["id"]] = "done"
-                st.session_state.demo_phase = "running"
-                st.session_state.demo_step_idx = idx + 1
-                st.rerun()
+                st.session_state.demo_sub = "start"
             else:
-                time.sleep(0.3)
+                time.sleep(0.8)
                 st.session_state.process_status[step["id"]] = "done"
                 st.session_state.demo_step_idx = idx + 1
-                st.rerun()
-        else:
-            st.session_state.demo_phase = "done"
+                st.session_state.demo_sub = "start"
+            st.rerun()
+
+    if st.session_state.demo_phase == "confirm":
+        sub = st.session_state.demo_sub
+        idx = st.session_state.demo_step_idx
+        step = MONTH_END_STEPS[idx]
+
+        if sub == "start":
+            time.sleep(1.0)
+            st.session_state.process_status[step["id"]] = "done"
+            st.session_state.demo_phase = "running"
+            st.session_state.demo_step_idx = idx + 1
+            st.session_state.demo_sub = "start"
+            st.rerun()
 
     # 动态统计信息
     st.markdown("---")
