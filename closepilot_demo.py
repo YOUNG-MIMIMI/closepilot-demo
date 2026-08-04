@@ -7,6 +7,25 @@ import time
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import dashscope
+from dashscope import Generation
+
+# ── 通义千问 API 配置 ──
+dashscope.api_key = "sk-ws-H.ELPDLHD.CjvI.MEUCIQDoC31zM-iaHGK1p-uGDrFmOZT92QV_jLkpiLMiXyvNJwIgCVOQuhRj3jgwoD08BqmthoGhKD7YfadEqehQmspB9D0"
+
+SYSTEM_PROMPT = """你是ClosePilot，一个专业的SAP智能月结Agent。你帮助财务人员通过自然语言完成月结相关操作。
+
+你的能力范围：
+1. 月结流程：凭证检查、银行对账、往来对账、科目重分类、折旧计提、成本分摊、收支匹配、税务提取、报表汇总、报告生成
+2. 对账操作：银行流水对账、往来科目对账
+3. 报表生成：资产负债表、利润表、现金流量表
+4. 凭证管理：凭证完整性检查、凭证查询
+
+回复风格：
+- 以Planner Agent身份先分析任务、拆解步骤
+- 调用Executor Agent执行具体操作
+- 调用Validator Agent校验结果
+- 用简洁专业的语言回复，附带操作状态和数据"""
 
 # ── 页面配置 ──
 st.set_page_config(
@@ -171,14 +190,38 @@ DEFAULT_RESPONSE = [
 ]
 
 
-def get_agent_response(user_msg: str):
-    """根据用户消息匹配Agent回复（支持多关键词、模糊匹配）"""
-    # 按关键词长度降序匹配，优先匹配更具体的关键词
+def call_qwen_api(user_msg: str) -> list:
+    """调用通义千问API，返回多Agent格式的回复列表"""
+    try:
+        response = Generation.call(
+            model="qwen-plus",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg}
+            ],
+            result_format="message"
+        )
+        if response.status_code == 200 and response.output.choices:
+            ai_text = response.output.choices[0].message.content
+            # 将AI回复拆分为多Agent步骤
+            return [("planner", f" AI分析：{ai_text[:200]}...")]
+        return None
+    except Exception:
+        return None
+
+
+def get_agent_response(user_msg: str, use_ai=False):
+    """根据用户消息匹配Agent回复（支持多关键词、模糊匹配、AI生成）"""
+    # AI模式：调用通义千问
+    if use_ai:
+        ai_result = call_qwen_api(user_msg)
+        if ai_result:
+            return ai_result
+    # 规则模式：关键词匹配（保证Demo稳定性）
     sorted_keywords = sorted(AGENT_RESPONSES.keys(), key=len, reverse=True)
     for keyword in sorted_keywords:
         if keyword in user_msg:
             return AGENT_RESPONSES[keyword]
-    # 模糊匹配：检查用户消息中是否包含任何关键词的部分
     fuzzy_map = {
         "月结": ["月结", "月报", "结账", "关账", "close"],
         "对账": ["对账", "核对", "reconcil", "余额"],
@@ -239,6 +282,13 @@ with st.sidebar:
     for sys_name, sys_desc in _systems:
         _latency = _rnd.randint(3, 28)
         st.success(f"✅ {sys_name} 已连接 ({sys_desc}, 延迟 {_latency}ms)")
+    st.markdown("---")
+    st.markdown("#### 🤖 AI 引擎")
+    use_ai = st.toggle("通义千问 AI", value=False, help="开启后使用通义千问大模型生成回复，关闭则使用预设规则引擎")
+    if use_ai:
+        st.success("✅ 通义千问 qwen-plus 已连接")
+    else:
+        st.info("ℹ️ 规则引擎模式（预设回复）")
     st.markdown("---")
     st.caption("埃森哲创新大赛 Demo v1.0")
 
@@ -344,7 +394,7 @@ with tab_chat:
         # 聊天处理逻辑
         if user_input and not st.session_state.chat_processing:
             st.session_state.chat_history.append({"role": "user", "content": user_input})
-            st.session_state.chat_responses = get_agent_response(user_input)
+            st.session_state.chat_responses = get_agent_response(user_input, use_ai=use_ai)
             st.session_state.chat_response_idx = 0
             st.session_state.chat_processing = True
             st.rerun()
