@@ -983,7 +983,8 @@ with tab_roi:
     total_annual_benefit = annual_cost_savings + error_reduction_benefit
 
     # 实施成本估算（SaaS模式）
-    annual_license_cost = revenue * 10000 * 0.003  # 年营收的 0.3%
+    # 许可费 = 基础费 + 按人头计费（更合理的定价模型）
+    annual_license_cost = 50000 + employees * 2000  # 基础5万 + 每人2000/年
     implementation_cost = 500000  # 一次性实施费用
 
     # ROI
