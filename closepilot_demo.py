@@ -325,6 +325,21 @@ with st.sidebar:
 st.markdown('<div class="main-header"> ClosePilot</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">SAP智能月结Agent — 让财务月结从5天缩短到2小时</div>', unsafe_allow_html=True)
 
+# 痛点故事
+st.markdown(
+    "<div style='background:linear-gradient(135deg, #FFF3E0 0%, #FFECB3 100%);"
+    "border-radius:12px; padding:18px 22px; margin:16px 0; border-left:4px solid #FF9800;'>"
+    "<div style='font-weight:700; font-size:1.05rem; color:#E65100; margin-bottom:8px;'>"
+    " 每个月末，财务经理 Lisa 都要经历这样的场景：</div>"
+    "<div style='font-size:0.92rem; color:#333; line-height:1.7;'>"
+    "带着团队 <b>连续加班5-7天</b>，在SAP里手动查凭证、对银行流水、做重分类调整。"
+    "Excel和SAP之间反复切换，一笔差异就要追溯半天。"
+    "好不容易做完，审计师来了又说<b>凭证缺失、分录不规范</b>。"
+    "她想：这些重复操作，为什么不能让系统自己干？"
+    "</div></div>",
+    unsafe_allow_html=True
+)
+
 # 顶部指标卡
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -1013,6 +1028,27 @@ with tab_roi:
 
     st.markdown("---")
 
+    # 客户价值故事
+    st.subheader(" 对财务人员意味着什么？")
+    st.markdown(
+        "<div style='background:#E3F2FD; border-radius:12px; padding:18px 22px; "
+        "border-left:4px solid #1976D2;'>"
+        "<div style='font-size:0.92rem; color:#333; line-height:1.8;'>"
+        "对 Lisa 来说，ClosePilot 改变的不仅是数字——"
+        "<br><br>"
+        " <b>月末不用再加班了。</b> 以前5-7天的月结，现在2天完成，团队可以准时下班。"
+        "<br>"
+        "🎯 <b>审计不再头疼。</b> 每步操作自动留痕，凭证完整、分录规范，审计师来了直接看报告。"
+        "<br>"
+        " <b>团队做更有价值的事。</b> 从重复的\"对账工\"变成真正的\"财务分析师\"，把时间花在预算规划、经营分析上。"
+        "<br>"
+        "🛡️ <b>风险可控。</b> 高风险操作必须人工确认，AI不会盲目执行，合规有保障。"
+        "</div></div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown("---")
+
     # 规模化收益
     st.subheader("📈 规模化收益（埃森哲多客户场景）")
     client_counts = [10, 25, 50, 100]
@@ -1026,6 +1062,28 @@ with tab_roi:
         st.metric("服务 50 家客户年节约成本", f"¥{total_cost_savings_50clients/100000000:.1f} 亿", "")
     with scale_col3:
         st.metric("服务 100 家客户年节约成本", f"¥{annual_cost_savings * 100 / 100000000:.1f} 亿", "非线性增长")
+
+    st.markdown("---")
+
+    # 商业价值故事
+    st.subheader("💼 商业机会")
+    st.markdown(
+        "<div style='background:#F3E5F5; border-radius:12px; padding:18px 22px; "
+        "border-left:4px solid #7B1FA2;'>"
+        "<div style='font-size:0.92rem; color:#333; line-height:1.8;'>"
+        "<b>市场有多大？</b> 中国有超过 <b>300万家</b> 使用SAP的中大型企业，"
+        "每家都需要月结。即使只覆盖1%，也是3万家客户。"
+        "<br><br>"
+        "<b>怎么赚钱？</b> SaaS订阅制——按企业规模分级定价，"
+        "中小企业 ¥5万/年，大型企业 ¥30万/年。"
+        "<br><br>"
+        "<b>为什么是现在？</b> 通义千问等大模型已经成熟，"
+        "AI理解财务语义的能力首次达到可用水平。"
+        "SAP FCA解决了\"看得见\"的问题，ClosePilot解决\"做得快\"的问题——"
+        "这是SAP生态里一个 <b>尚未被填补的空白</b>。"
+        "</div></div>",
+        unsafe_allow_html=True
+    )
 
     st.markdown("---")
     st.caption("* 计算假设：财务人员平均年薪 25 万元，年工作日 250 天，日成本约 1,000 元。许可费用按年营收 0.3% 估算。实际数据因企业规模、行业、现有流程成熟度而异。")
