@@ -124,9 +124,11 @@ if "process_status" not in st.session_state:
 if "demo_step_idx" not in st.session_state:
     st.session_state.demo_step_idx = -1
 if "demo_phase" not in st.session_state:
-    st.session_state.demo_phase = "idle"  # idle, running, confirm, done
+    st.session_state.demo_phase = "idle"  # idle, running, confirm, revise, reconfirm, done
 if "demo_sub" not in st.session_state:
     st.session_state.demo_sub = "start"  # start → wait → advance
+if "demo_reject_reason" not in st.session_state:
+    st.session_state.demo_reject_reason = ""
 if "roi_revenue" not in st.session_state:
     st.session_state.roi_revenue = 50
 if "roi_employees" not in st.session_state:
@@ -141,12 +143,15 @@ MONTH_END_STEPS = [
     {"id": 1, "name": "凭证完整性检查", "system": "SAP FI", "duration": 8, "risk": "低"},
     {"id": 2, "name": "银行流水对账", "system": "SAP FI + 银行系统", "duration": 15, "risk": "中"},
     {"id": 3, "name": "往来科目对账", "system": "SAP FI/CO", "duration": 12, "risk": "中"},
-    {"id": 4, "name": "科目重分类调整", "system": "SAP FI", "duration": 10, "risk": "高"},
+    {"id": 4, "name": "科目重分类调整", "system": "SAP FI", "duration": 10, "risk": "高",
+     "confirm_detail": "拟调整分录 47 笔，总金额 ¥12,450,000\n调整原因：长期应收款重分类至非流动资产\n影响科目：1221010000 → 1501010000\nT-Code: FAGL_FC_VAL"},
     {"id": 5, "name": "折旧计提过账", "system": "SAP AA", "duration": 6, "risk": "低"},
     {"id": 6, "name": "成本中心分摊", "system": "SAP CO", "duration": 10, "risk": "中"},
-    {"id": 7, "name": "收入成本匹配校验", "system": "SAP CO + CRM", "duration": 14, "risk": "高"},
+    {"id": 7, "name": "收入成本匹配校验", "system": "SAP CO + CRM", "duration": 14, "risk": "高",
+     "confirm_detail": "发现3笔收入成本不匹配，差异金额 ¥284,500\n订单#SO-20240315 收入已确认但成本未归集\n订单#SO-20240322 成本多计 ¥156,000\n建议：暂估入账或冲回调整"},
     {"id": 8, "name": "税务数据提取", "system": "SAP FI + 税务系统", "duration": 8, "risk": "中"},
-    {"id": 9, "name": "合并报表数据汇总", "system": "SAP BPC", "duration": 12, "risk": "高"},
+    {"id": 9, "name": "合并报表数据汇总", "system": "SAP BPC", "duration": 12, "risk": "高",
+     "confirm_detail": "3家子公司数据已提取，发现2项合并调整\n华东公司内部交易抵消 ¥3,200,000\n华南公司汇率差异调整 ¥187,000\n合并后净利润：¥45,680,000"},
     {"id": 10, "name": "月结报告生成", "system": "SAP + BI", "duration": 5, "risk": "低"},
 ]
 
@@ -510,6 +515,7 @@ with tab_dashboard:
         st.session_state.demo_step_idx = -1
         st.session_state.demo_phase = "idle"
         st.session_state.demo_sub = "start"
+        st.session_state.demo_reject_reason = ""
         st.rerun()
 
     # 流程步骤展示
@@ -527,6 +533,8 @@ with tab_dashboard:
 
         if status == "done":
             icon, status_text, status_cls = "✅", "已完成", "status-done"
+        elif status == "rejected":
+            icon, status_text, status_cls = "❌", "已驳回", "status-error"
         elif status == "running":
             icon, status_text, status_cls = "⏳", "执行中...", "status-running"
         elif status == "confirm":
@@ -535,7 +543,7 @@ with tab_dashboard:
             icon, status_text, status_cls = "⬜", "等待中", "status-pending"
 
         risk_color = {"低": "#4CAF50", "中": "#FF9800", "高": "#F44336"}.get(step["risk"], "#999")
-        border_color = '#2E7D32' if status == 'done' else '#FFA000' if status in ('running', 'confirm') else '#E0E0E0'
+        border_color = '#2E7D32' if status == 'done' else '#C62828' if status == 'rejected' else '#FFA000' if status in ('running', 'confirm') else '#E0E0E0'
 
         st.markdown(f"""
         <div class="step-card" style="border-left: 4px solid {border_color}; {'opacity: 0.5;' if status == 'pending' else ''}">
@@ -593,6 +601,7 @@ with tab_dashboard:
     if st.session_state.demo_phase == "confirm":
         idx = st.session_state.demo_step_idx
         step = MONTH_END_STEPS[idx]
+        detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
 
         # 显示Human-in-the-Loop确认对话框
         st.markdown("---")
@@ -601,15 +610,30 @@ with tab_dashboard:
             f"Agent已暂停执行，等待财务人员确认。"
         )
 
-        confirm_col1, confirm_col2 = st.columns([1, 3])
+        # 确认详情面板
+        st.markdown(
+            f"<div style='background:#FFF8E1; border:1px solid #FFB300; border-radius:8px; padding:14px 18px; margin:8px 0;'>"
+            f"<div style='font-weight:700; color:#E65100; margin-bottom:8px;'> Agent 拟执行操作：</div>"
+            f"<pre style='background:white; padding:10px; border-radius:6px; font-size:0.85rem; white-space:pre-wrap; margin:0;'>{detail}</pre>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+        confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 2])
         with confirm_col1:
             confirm_clicked = st.button(
                 "✅ 确认执行",
                 type="primary",
                 use_container_width=True,
-                key="confirm_btn"
+                key="confirm_approve"
             )
         with confirm_col2:
+            reject_clicked = st.button(
+                "❌ 驳回修改",
+                use_container_width=True,
+                key="confirm_reject"
+            )
+        with confirm_col3:
             st.caption("这是ClosePilot的安全机制：AI自主决策 + 人工把关高风险节点")
 
         if confirm_clicked:
@@ -617,6 +641,89 @@ with tab_dashboard:
             st.session_state.demo_phase = "running"
             st.session_state.demo_step_idx = idx + 1
             st.session_state.demo_sub = "start"
+            st.rerun()
+
+        if reject_clicked:
+            st.session_state.demo_phase = "revise"
+            st.rerun()
+
+    # ─ 驳回修改阶段：输入修改意见 ──
+    if st.session_state.demo_phase == "revise":
+        idx = st.session_state.demo_step_idx
+        step = MONTH_END_STEPS[idx]
+
+        st.markdown("---")
+        st.error(f" **Step {step['id']}「{step['name']}」已被驳回**，请说明修改要求，Agent将调整方案后重新提交确认。")
+
+        reject_reason = st.text_area(
+            "驳回原因 / 修改要求",
+            value=st.session_state.demo_reject_reason,
+            placeholder="例如：金额有误，请重新核对；或：暂不执行，待下月处理",
+            height=80,
+            key="reject_reason_input"
+        )
+
+        submit_col1, submit_col2 = st.columns([1, 3])
+        with submit_col1:
+            submit_clicked = st.button(
+                "📤 提交修改意见",
+                type="primary",
+                use_container_width=True,
+                key="submit_reject"
+            )
+        with submit_col2:
+            st.caption("Agent将根据您的意见调整方案，再次提交确认")
+
+        if submit_clicked and reject_reason.strip():
+            st.session_state.demo_reject_reason = reject_reason.strip()
+            st.session_state.demo_phase = "reconfirm"
+            st.rerun()
+
+    # ── 重新确认阶段：Agent调整后的方案 ──
+    if st.session_state.demo_phase == "reconfirm":
+        idx = st.session_state.demo_step_idx
+        step = MONTH_END_STEPS[idx]
+        detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
+        reason = st.session_state.demo_reject_reason
+
+        st.markdown("---")
+        st.info(f" **Agent 已根据您的意见调整方案** — Step {step['id']}「{step['name']}」")
+
+        # 显示驳回意见
+        st.markdown(
+            f"<div style='background:#FFEBEE; border:1px solid #EF5350; border-radius:8px; padding:10px 14px; margin:6px 0;'>"
+            f"<div style='font-weight:600; color:#C62828; font-size:0.85rem;'> 您的修改意见：</div>"
+            f"<div style='font-size:0.85rem; color:#333; margin-top:4px;'>{reason}</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+        # 显示调整后的方案
+        st.markdown(
+            f"<div style='background:#E8F5E9; border:1px solid #66BB6A; border-radius:8px; padding:14px 18px; margin:8px 0;'>"
+            f"<div style='font-weight:700; color:#2E7D32; margin-bottom:8px;'> Agent 调整后的方案：</div>"
+            f"<pre style='background:white; padding:10px; border-radius:6px; font-size:0.85rem; white-space:pre-wrap; margin:0;'>{detail}\n\n[已根据您的意见调整]</pre>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+        reconfirm_col1, reconfirm_col2 = st.columns([1, 3])
+        with reconfirm_col1:
+            reconfirm_clicked = st.button(
+                "✅ 确认执行",
+                type="primary",
+                use_container_width=True,
+                key="reconfirm_approve"
+            )
+        with reconfirm_col2:
+            st.caption("此次为最终确认，Agent将按调整后的方案执行")
+
+        if reconfirm_clicked:
+            st.session_state.process_status[step["id"]] = "done"
+            st.session_state.demo_phase = "running"
+            st.session_state.demo_step_idx = idx + 1
+            st.session_state.demo_sub = "start"
+            st.session_state.demo_reject_reason = ""
             st.rerun()
 
     # 动态统计信息
