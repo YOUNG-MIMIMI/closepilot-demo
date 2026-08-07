@@ -1,4 +1,4 @@
-"""
+﻿"""
 ClosePilot — SAP智能月结Agent Demo
 埃森哲创新大赛原型演示
 """
@@ -11,7 +11,7 @@ import dashscope
 from dashscope import Generation
 
 # ── 通义千问 API 配置 ──
-dashscope.api_key = "sk-ws-H.ELPDLHD.CjvI.MEUCIQDoC31zM-iaHGK1p-uGDrFmOZT92QV_jLkpiLMiXyvNJwIgCVOQuhRj3jgwoD08BqmthoGhKD7YfadEqehQmspB9D0"
+dashscope.api_key = st.secrets.get("QWEN_API_KEY", "")
 
 SYSTEM_PROMPT = """你是ClosePilot，一个专业的SAP智能月结Agent。你帮助财务人员通过自然语言完成月结相关操作。
 
@@ -223,7 +223,7 @@ def call_qwen_api(user_msg: str) -> list:
             if ai_text.startswith("["):
                 steps = _json.loads(ai_text)
                 return [(s["agent"], s["content"]) for s in steps if "agent" in s and "content" in s]
-            # 如果不是JSON，尝试从markdown代码块中提取
+            # 如果不是JSON，尝试从代码块中提取
             if "```" in ai_text:
                 json_str = ai_text.split("```")[1].strip()
                 if json_str.startswith("json"):
@@ -349,7 +349,7 @@ with col2:
 with col3:
     st.metric("流程错误率降低", "40%", "↓")
 with col4:
-    st.metric("年节省人天(单企业)", "360天", "")
+    st.metric("年节省人天(单企业)", "~360天", "按20人团队估算")
 
 st.markdown("---")
 
@@ -962,12 +962,11 @@ with tab_roi:
     st.session_state.roi_current_days = current_days
 
     # ROI 计算逻辑
-    # 假设：月结人工占比 = 财务团队 * 60% 时间用于月结相关
+    # 假设：月结核心人员 = 财务团队 * 30%（不是所有人都参与月结）
     # 传统月结: current_days 天
     # AI月结: 2 天
-    # 每次月结节省: (current_days - 2) 天 * 参与人数
-    # 参与人数 = 财务团队 * 70% (不是所有人都参与月结)
-    monthly_participants = max(int(employees * 0.7), 1)
+    # 每次月结节省: (current_days - 2) 天 * 核心参与人数
+    monthly_participants = max(int(employees * 0.3), 1)
     days_saved_per_month = max(current_days - 2, 0)
     person_days_saved_per_month = monthly_participants * days_saved_per_month
     person_days_saved_per_year = person_days_saved_per_month * 12
@@ -977,15 +976,15 @@ with tab_roi:
     annual_cost_savings = person_days_saved_per_year * cost_per_day
 
     # 错误率降低带来的隐性收益（审计风险、罚款等）
-    error_reduction_benefit = annual_cost_savings * 0.15  # 额外 15%
+    error_reduction_benefit = annual_cost_savings * 0.1  # 额外 10%
 
     # 总收益
     total_annual_benefit = annual_cost_savings + error_reduction_benefit
 
     # 实施成本估算（SaaS模式）
     # 许可费 = 基础费 + 按人头计费（更合理的定价模型）
-    annual_license_cost = 50000 + employees * 2000  # 基础5万 + 每人2000/年
-    implementation_cost = 500000  # 一次性实施费用
+    annual_license_cost = 80000 + employees * 3000  # 基础8万 + 每人3000/年
+    implementation_cost = 800000  # 一次性实施费用（含配置、培训、测试）
 
     # ROI
     first_year_roi = (total_annual_benefit - annual_license_cost - implementation_cost) / max(annual_license_cost + implementation_cost, 1) * 100
@@ -1008,7 +1007,7 @@ with tab_roi:
     st.markdown("---")
 
     # 详细收益分解图
-    st.subheader(" 收益分解")
+    st.subheader("收益分解")
     benefit_labels = ["人力成本节约", "错误率降低收益", "年许可费用", "实施费用(首年)"]
     benefit_values = [annual_cost_savings, error_reduction_benefit, -annual_license_cost, -implementation_cost]
     benefit_colors = ['#4CAF50', '#8BC34A', '#FF9800', '#F44336']
@@ -1030,7 +1029,7 @@ with tab_roi:
     st.markdown("---")
 
     # 客户价值故事
-    st.subheader(" 对财务人员意味着什么？")
+    st.subheader("对财务人员意味着什么？")
     st.markdown(
         "<div style='background:#E3F2FD; border-radius:12px; padding:18px 22px; "
         "border-left:4px solid #1976D2;'>"
@@ -1062,7 +1061,7 @@ with tab_roi:
     with scale_col2:
         st.metric("服务 50 家客户年节约成本", f"¥{total_cost_savings_50clients/100000000:.1f} 亿", "")
     with scale_col3:
-        st.metric("服务 100 家客户年节约成本", f"¥{annual_cost_savings * 100 / 100000000:.1f} 亿", "非线性增长")
+        st.metric("服务 100 家客户年节约成本", f"¥{annual_cost_savings * 100 / 100000000:.1f} 亿", "规模效应")
 
     st.markdown("---")
 
@@ -1087,4 +1086,4 @@ with tab_roi:
     )
 
     st.markdown("---")
-    st.caption("* 计算假设：财务人员平均年薪 25 万元，年工作日 250 天，日成本约 1,000 元。许可费用按年营收 0.3% 估算。实际数据因企业规模、行业、现有流程成熟度而异。")
+    st.caption("* 计算假设：财务人员平均年薪 25 万元，年工作日 250 天，日成本约 1,000 元。月结核心人员按财务团队 30% 估算。许可费用按基础8万元 + 每人3,000元/年估算。实际数据因企业规模、行业、现有流程成熟度而异。")
