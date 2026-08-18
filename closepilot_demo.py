@@ -137,6 +137,12 @@ if "roi_current_days" not in st.session_state:
     st.session_state.roi_current_days = 6
 if "sap_log" not in st.session_state:
     st.session_state.sap_log = []
+if "knowledge_base" not in st.session_state:
+    st.session_state.knowledge_base = []
+if "contact_log" not in st.session_state:
+    st.session_state.contact_log = []
+if "client_template" not in st.session_state:
+    st.session_state.client_template = "manufacturing"
 
 # ── 月结子流程定义 ──
 MONTH_END_STEPS = [
@@ -203,6 +209,72 @@ DEFAULT_RESPONSE = [
     ("executor", "正在执行相关操作..."),
     ("validator", "操作已完成，结果校验通过 ✅"),
 ]
+
+# ── 知识沉淀库（历史处理记录）──
+KNOWLEDGE_BASE = [
+    {
+        "scenario": "银行流水差异-手续费",
+        "pattern": "工行流水.*金额差.*手续费",
+        "suggestion": "根据历史记录，该差异出现过3次，均为银行手续费未入账。建议直接计入“财务费用-手续费”科目。",
+        "history": "张会计于2026-02-15做了相同处理，审计通过",
+        "confidence": 92,
+    },
+    {
+        "scenario": "应收账款超期90天",
+        "pattern": "超期90天",
+        "suggestion": "超期90天以上的应收账款，建议先联系业务员确认客户付款计划，同时计提坏账准备。",
+        "history": "上月类似情况：客户A因资金周转延迟，已制定分期还款计划",
+        "confidence": 85,
+    },
+    {
+        "scenario": "收入成本不匹配",
+        "pattern": "收入成本不匹配|成本未归集",
+        "suggestion": "收入已确认但成本未归集，通常为供应商发票延迟。建议暂估入账，待发票到达后冲回调整。",
+        "history": "2026-01月结中3笔类似情况均采用暂估方式，审计无异议",
+        "confidence": 88,
+    },
+    {
+        "scenario": "外币汇率差异",
+        "pattern": "汇率差异|外币评估",
+        "suggestion": "汇率差异在阈值0.5%以内可自动调整，超过阈值需财务经理审批。建议使用月末中间价重估。",
+        "history": "近6个月汇率差异均在0.3%以内，全部自动调整通过",
+        "confidence": 95,
+    },
+]
+
+# ── 智能联络人映射 ─
+CONTACT_MAP = {
+    "银行流水差异": {
+        "person": "王明（出纳）",
+        "email": "wangming@company.com",
+        "department": "财务部-资金组",
+        "message_template": "3月月结中发现银行流水差异，工行流水#{流水号}金额差¥{金额}，SAP无对应凭证。请确认该笔款项的性质和归属。",
+    },
+    "应收账款差异": {
+        "person": "李华（销售专员）",
+        "email": "lihua@company.com",
+        "department": "销售部",
+        "message_template": "客户{客户名}应收账款对账发现差异¥{金额}，对应订单#{订单号}。请确认客户是否已付款及付款凭证。",
+    },
+    "应付账款差异": {
+        "person": "赵强（采购专员）",
+        "email": "zhaoqiang@company.com",
+        "department": "采购部",
+        "message_template": "供应商{供应商名}应付账款对账发现差异¥{金额}，对应采购订单#{订单号}。请确认是价格变动还是数量问题。",
+    },
+    "费用归属不清": {
+        "person": "各部门负责人",
+        "email": "dept-head@company.com",
+        "department": "相关业务部门",
+        "message_template": "3月月结中发现一笔费用¥{金额}归属不清，凭证摘要：{摘要}。请确认该费用应归入哪个成本中心。",
+    },
+    "凭证摘要不规范": {
+        "person": "做凭证的会计",
+        "email": "accounting@company.com",
+        "department": "财务部-核算组",
+        "message_template": "凭证#{凭证号}的摘要填写不规范（当前摘要：“{摘要}”），请补充具体业务说明以便审计查阅。",
+    },
+}
 
 
 def call_qwen_api(user_msg: str) -> list:
@@ -311,13 +383,13 @@ with st.sidebar:
         st.success(f"✅ {sys_name} 已连接 ({sys_desc}, 延迟 {_latency}ms)")
     st.markdown("---")
     st.markdown("#### 🤖 AI 引擎")
-    use_ai = st.toggle("通义千问 AI", value=False, help="开启后使用通义千问大模型生成回复，关闭则使用预设规则引擎")
+    use_ai = st.toggle("通义千问 AI", value=True, help="开启后使用通义千问大模型生成回复，关闭则使用预设规则引擎")
     if use_ai:
         st.success("✅ 通义千问 qwen-plus 已连接")
     else:
         st.info("ℹ️ 规则引擎模式（预设回复）")
     st.markdown("---")
-    st.caption("埃森哲创新大赛 Demo v1.0")
+    st.caption("埃森哲创新大赛 Demo v2.0 — 决赛版")
 
 # ═══════════════════════════════════════
 # 主页面
@@ -466,6 +538,108 @@ with tab_chat:
                 st.session_state.chat_processing = False
                 st.rerun()
 
+        # ── 知识沉淀 + 智能联络面板 ─
+        # 当聊天历史中包含差异/异常信息时，展示知识建议和联络选项
+        has_discrepancy = any(
+            "差异" in msg.get("content", "") or "异常" in msg.get("content", "") or "不匹配" in msg.get("content", "")
+            for msg in st.session_state.chat_history
+        )
+
+        if has_discrepancy and not st.session_state.chat_processing:
+            st.markdown("---")
+
+            # 知识沉淀建议
+            st.subheader("💡 智能建议（知识沉淀）")
+            st.caption("AI根据历史处理记录，自动匹配相似场景的解决方案")
+
+            for kb in KNOWLEDGE_BASE[:2]:  # 展示最相关的2条
+                confidence_color = "#4CAF50" if kb["confidence"] >= 90 else "#FF9800"
+                st.markdown(
+                    f"<div style='background:#F1F8E9; border:1px solid #AED581; border-radius:8px; "
+                    f"padding:12px 16px; margin:8px 0;'>"
+                    f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;'>"
+                    f"<span style='font-weight:700; color:#33691E;'>📚 {kb['scenario']}</span>"
+                    f"<span style='background:{confidence_color}; color:white; padding:2px 8px; "
+                    f"border-radius:10px; font-size:0.75rem;'>匹配度 {kb['confidence']}%</span>"
+                    f"</div>"
+                    f"<div style='font-size:0.88rem; color:#333; line-height:1.6;'>{kb['suggestion']}</div>"
+                    f"<div style='font-size:0.8rem; color:#666; margin-top:6px; font-style:italic;'>"
+                    f"📝 历史记录：{kb['history']}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+            # 智能联络
+            st.markdown("---")
+            st.subheader("📧 智能联络（一键协调）")
+            st.caption("AI自动识别责任人，生成邮件，一键发送")
+
+            # 模拟第一个联络场景
+            contact_scenario = "银行流水差异"
+            contact = CONTACT_MAP[contact_scenario]
+
+            st.markdown(
+                f"<div style='background:#E3F2FD; border:1px solid #90CAF9; border-radius:8px; "
+                f"padding:14px 18px; margin:8px 0;'>"
+                f"<div style='font-weight:700; color:#1565C0; margin-bottom:10px;'>"
+                f"📧 联络：{contact['person']} — {contact['department']}</div>"
+                f"<div style='font-size:0.82rem; color:#555; margin-bottom:4px;'>"
+                f"收件人：{contact['email']}</div>"
+                f"<div style='font-size:0.82rem; color:#555; margin-bottom:8px;'>"
+                f"主题：【月结确认】工行流水差异 ¥2,340 需确认</div>"
+                f"<div style='background:white; border-radius:6px; padding:10px 12px; "
+                f"font-size:0.85rem; color:#333; line-height:1.6; border:1px solid #E0E0E0;'>"
+                f"王明你好，<br><br>"
+                f"3月月结中发现以下差异需要确认：<br>"
+                f"• 工行2月15日流水 #28471，金额差异 ¥2,340，SAP无对应凭证<br>"
+                f"• 根据历史记录，该差异通常为银行手续费未入账<br><br>"
+                f"请确认：<br>"
+                f"1. 该笔款项是否为银行手续费？<br>"
+                f"2. 如确认，我将直接计入“财务费用-手续费”科目<br><br>"
+                f"请在3月31日前回复，谢谢！<br>"
+                f"<span style='color:#999; font-size:0.8rem;'>— ClosePilot 自动发送</span>"
+                f"</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+            contact_btn_col1, contact_btn_col2, contact_btn_col3 = st.columns([1, 1, 2])
+            with contact_btn_col1:
+                send_clicked = st.button("✅ 确认发送", type="primary", use_container_width=True, key="send_contact")
+            with contact_btn_col2:
+                edit_clicked = st.button("✏️ 修改后发送", use_container_width=True, key="edit_contact")
+            with contact_btn_col3:
+                st.caption("AI已根据差异类型自动匹配责任人并生成邮件内容")
+
+            if send_clicked:
+                st.session_state.contact_log.append({
+                    "to": contact["email"],
+                    "scenario": contact_scenario,
+                    "time": time.strftime("%H:%M:%S"),
+                    "status": "已发送"
+                })
+                st.success(f"✅ 邮件已发送至 {contact['email']}，等待回复。")
+                st.rerun()
+
+            if edit_clicked:
+                st.info("✏️ 邮件内容已复制到剪贴板，你可以在邮件客户端中修改后发送。")
+
+            # 显示已发送记录
+            if st.session_state.contact_log:
+                st.markdown("---")
+                st.subheader("📨 联络记录")
+                for log in st.session_state.contact_log:
+                    st.markdown(
+                        f"<div style='font-size:0.85rem; padding:6px 10px; margin:4px 0; "
+                        f"background:#F5F5F5; border-radius:6px;'>"
+                        f"<span style='color:#888;'>[{log['time']}]</span> "
+                        f"<span style='color:#1565C0;'>→ {log['to']}</span> "
+                        f"<span style='color:#333;'>({log['scenario']})</span> "
+                        f"<span style='color:#4CAF50; font-weight:600;'>{log['status']}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
     # 右侧：SAP GUI 模拟界面
     with sap_col:
         st.markdown("#### 🖥️ SAP 操作终端")
@@ -511,6 +685,72 @@ with tab_chat:
 with tab_dashboard:
     st.subheader("📊 月结流程实时看板")
     st.caption("模拟3月月结执行过程，观察10个子流程的实时状态")
+
+    # ── 客户模板切换（展示拓展性）──
+    st.markdown("---")
+    st.subheader("🏢 客户流程配置")
+    st.caption("不同客户的月结流程不同，通过配置切换，无需改代码")
+
+    template_col1, template_col2, template_col3 = st.columns(3)
+    with template_col1:
+        select_manufacturing = st.button(
+            "🏭 制造集团A（10步）",
+            use_container_width=True,
+            type="primary" if st.session_state.client_template == "manufacturing" else "secondary",
+            key="tpl_mfg"
+        )
+    with template_col2:
+        select_retail = st.button(
+            " 零售集团B（12步）",
+            use_container_width=True,
+            type="primary" if st.session_state.client_template == "retail" else "secondary",
+            key="tpl_retail"
+        )
+    with template_col3:
+        select_service = st.button(
+            "💼 服务集团C（8步）",
+            use_container_width=True,
+            type="primary" if st.session_state.client_template == "service" else "secondary",
+            key="tpl_service"
+        )
+
+    if select_manufacturing:
+        st.session_state.client_template = "manufacturing"
+        st.rerun()
+    if select_retail:
+        st.session_state.client_template = "retail"
+        st.rerun()
+    if select_service:
+        st.session_state.client_template = "service"
+        st.rerun()
+
+    # 根据模板显示不同的流程说明
+    template_info = {
+        "manufacturing": {
+            "name": "制造集团A",
+            "steps": 10,
+            "features": "含成本核算、折旧计提、合并报表",
+            "modules": "FI/CO/AA/BPC",
+        },
+        "retail": {
+            "name": "零售集团B",
+            "steps": 12,
+            "features": "含库存估值、促销分摊、多门店合并",
+            "modules": "FI/CO/MM/SD",
+        },
+        "service": {
+            "name": "服务集团C",
+            "steps": 8,
+            "features": "含项目结算、人力成本分摊",
+            "modules": "FI/CO/PS",
+        },
+    }
+    current_tpl = template_info[st.session_state.client_template]
+    st.info(
+        f"**{current_tpl['name']}** — {current_tpl['steps']}个子流程 | "
+        f"涉及模块：{current_tpl['modules']} | "
+        f"特色：{current_tpl['features']}"
+    )
 
     # 控制按钮
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 3])
@@ -809,12 +1049,62 @@ with tab_dashboard:
         st.success(f"**AI方式总耗时**：{total_ai} 分钟（约 {total_ai//60} 小时）")
     with summary_col3:
         st.warning(f"**效率提升**：{save_pct}%")
+        
+        # ── 异常热力图 ─
+        st.markdown("---")
+        st.subheader(" 月结异常热力图（历史数据）")
+        st.caption("基于过去12个月的月结记录，展示各步骤的异常频率和常见问题")
+        
+        anomaly_data = {
+            "步骤": ["凭证检查", "银行对账", "往来对账", "重分类调整", "折旧计提", "成本分摊", "收支匹配", "税务提取", "合并报表", "报告生成"],
+            "异常率(%)": [12, 35, 25, 8, 5, 10, 18, 7, 22, 3],
+            "平均处理时间(min)": [15, 45, 30, 20, 10, 15, 25, 12, 40, 8],
+            "常见问题": [
+                "凭证缺失、摘要不规范",
+                "流水延迟、手续费未入账",
+                "时间性差异、汇率波动",
+                "科目分类错误",
+                "资产新增/处置未同步",
+                "分摊基数争议",
+                "发票延迟、暂估调整",
+                "税率变更、跨境税务",
+                "内部交易抵消、汇率调整",
+                "格式调整、数据核对",
+            ],
+        }
+        anomaly_df = pd.DataFrame(anomaly_data)
+        
+        # 用Plotly画热力图风格的条形图
+        fig_anomaly = go.Figure(go.Bar(
+            x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
+            marker_color=[
+                '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
+                for v in anomaly_data["异常率(%)"]
+            ],
+            text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
+            textposition='outside',
+        ))
+        fig_anomaly.update_layout(
+            height=300,
+            xaxis_title="月结步骤",
+            yaxis_title="异常率 (%)",
+            margin=dict(l=60, r=20, t=20, b=80),
+            font=dict(size=11),
+        )
+        st.plotly_chart(fig_anomaly, use_container_width=True)
+        
+        # 异常详情表
+        st.markdown("**异常详情：**")
+        anomaly_display_df = anomaly_df[["步骤", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
+        anomaly_display_df.columns = ["步骤", "异常率", "平均处理时间", "常见问题"]
+        st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
 
 # ═══════════════════════════════════════
 # Tab 3: 系统架构
 # ═══════════════════════════════════════
 with tab_architecture:
-    st.subheader("🏗️ ClosePilot 系统架构")
+    st.subheader("️ ClosePilot 系统架构")
+    st.caption("四层架构设计：配置化流程 + 通用Agent + 动作注册表 + SAP对接层")
 
     st.markdown("""
 ### 三层智能架构 + 治理层
@@ -926,6 +1216,46 @@ with tab_architecture:
     st.markdown("- SAP FCA 解决了「管理可见性」问题（知道谁在做什么、进度如何），但操作仍靠人工")
     st.markdown("- ClosePilot 进一步解决了「执行自动化」问题——Agent理解财务语义，跨系统自主完成操作")
     st.markdown("- 两者互补而非替代：ClosePilot可对接FCA的任务管理，在其基础上叠加AI执行层")
+
+    # ─ 落地架构说明 ─
+    st.markdown("---")
+    st.subheader("🔧 落地架构设计原则")
+
+    arch_col1, arch_col2 = st.columns(2)
+    with arch_col1:
+        st.markdown("""
+####  配置化流程引擎
+- 流程步骤通过 YAML 配置定义
+- 客户有10步还是15步，改配置不改代码
+- 预置行业模板（制造/零售/服务）
+- 新增步骤 = 加一段配置
+        """)
+    with arch_col2:
+        st.markdown("""
+####  动作注册表（插件化）
+- 每个SAP操作注册为一个“插件”
+- Agent不关心具体是哪一步，只读配置
+- 新增BAPI = 加一个插件条目
+- 核心引擎永远不用改
+        """)
+
+    arch_col3, arch_col4 = st.columns(2)
+    with arch_col3:
+        st.markdown("""
+####  意图映射层（防幻觉）
+- AI只输出“意图”，不直接生成T-Code
+- 规则引擎把意图翻译成具体BAPI调用
+- 避免大模型编造不存在的接口
+- 可审计、可追溯
+        """)
+    with arch_col4:
+        st.markdown("""
+#### 📚 知识沉淀闭环
+- 记录每次人工干预的处理方式
+- 下次遇到相似场景自动给出建议
+- AI越用越聪明，经验不随人流失
+- 形成企业月结知识资产
+        """)
 
 # ═══════════════════════════════════════
 # Tab 4: ROI 计算器
