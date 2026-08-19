@@ -262,26 +262,45 @@ DEFAULT_RESPONSE = [
     ("validator", "操作已完成，结果校验通过 ✅"),
 ]
 
-# ── 异常历史记录（过去12个月月结执行统计）──
+# ── 异常历史记录（过去12个月月结执行统计，按企业区分）──
 # anomalies/total = 异常率，由系统自动计算
 ANOMALY_HISTORY = {
-    "凭证完整性检查": {"total": 12, "anomalies": 1, "avg_time": 15, "issue": "凭证缺失、摘要不规范"},
-    "银行流水对账": {"total": 12, "anomalies": 4, "avg_time": 45, "issue": "流水延迟、手续费未入账"},
-    "往来科目对账": {"total": 12, "anomalies": 3, "avg_time": 30, "issue": "时间性差异、汇率波动"},
-    "科目重分类调整": {"total": 12, "anomalies": 2, "avg_time": 20, "issue": "科目分类错误"},
-    "折旧计提过账": {"total": 12, "anomalies": 0, "avg_time": 10, "issue": "资产新增/处置未同步"},
-    "成本中心分摊": {"total": 12, "anomalies": 2, "avg_time": 15, "issue": "分摊基数争议"},
-    "收入成本匹配校验": {"total": 12, "anomalies": 3, "avg_time": 25, "issue": "发票延迟、暂估调整"},
-    "税务数据提取": {"total": 12, "anomalies": 1, "avg_time": 12, "issue": "税率变更、跨境税务"},
-    "合并报表数据汇总": {"total": 12, "anomalies": 3, "avg_time": 40, "issue": "内部交易抵消、汇率调整"},
-    "月结报告生成": {"total": 12, "anomalies": 0, "avg_time": 8, "issue": "格式调整、数据核对"},
-    "库存估值调整": {"total": 12, "anomalies": 5, "avg_time": 35, "issue": "估值方法差异、跌价准备未计提"},
-    "促销费用分摊": {"total": 12, "anomalies": 2, "avg_time": 20, "issue": "促销分摊规则争议"},
-    "门店收入确认": {"total": 12, "anomalies": 3, "avg_time": 28, "issue": "收入确认时点争议"},
-    "多门店合并报表": {"total": 12, "anomalies": 3, "avg_time": 45, "issue": "内部调拨抵消、跨区域汇率"},
-    "项目成本结算": {"total": 12, "anomalies": 3, "avg_time": 50, "issue": "完工进度估算偏差"},
-    "人力成本分摊": {"total": 12, "anomalies": 2, "avg_time": 30, "issue": "工时归集不准确"},
-    "管理报表汇总": {"total": 12, "anomalies": 1, "avg_time": 15, "issue": "报表口径不一致"},
+    "manufacturing": {
+        "凭证完整性检查": {"total": 12, "anomalies": 1, "avg_time": 15, "issue": "凭证缺失、摘要不规范"},
+        "银行流水对账": {"total": 12, "anomalies": 4, "avg_time": 45, "issue": "流水延迟、手续费未入账"},
+        "往来科目对账": {"total": 12, "anomalies": 3, "avg_time": 30, "issue": "时间性差异、汇率波动"},
+        "科目重分类调整": {"total": 12, "anomalies": 2, "avg_time": 20, "issue": "科目分类错误"},
+        "折旧计提过账": {"total": 12, "anomalies": 0, "avg_time": 10, "issue": "资产新增/处置未同步"},
+        "成本中心分摊": {"total": 12, "anomalies": 2, "avg_time": 15, "issue": "分摊基数争议"},
+        "收入成本匹配校验": {"total": 12, "anomalies": 3, "avg_time": 25, "issue": "发票延迟、暂估调整"},
+        "税务数据提取": {"total": 12, "anomalies": 1, "avg_time": 12, "issue": "税率变更、跨境税务"},
+        "合并报表数据汇总": {"total": 12, "anomalies": 3, "avg_time": 40, "issue": "内部交易抵消、汇率调整"},
+        "月结报告生成": {"total": 12, "anomalies": 0, "avg_time": 8, "issue": "格式调整、数据核对"},
+    },
+    "retail": {
+        "凭证完整性检查": {"total": 12, "anomalies": 2, "avg_time": 12, "issue": "跨门店摘要不一致、凭证缺失"},
+        "银行流水对账": {"total": 12, "anomalies": 3, "avg_time": 40, "issue": "多账户流水延迟、手续费未入账"},
+        "往来科目对账": {"total": 12, "anomalies": 2, "avg_time": 25, "issue": "供应商对账延迟、时间性差异"},
+        "库存估值调整": {"total": 12, "anomalies": 5, "avg_time": 35, "issue": "估值方法差异、跌价准备未计提"},
+        "促销费用分摊": {"total": 12, "anomalies": 3, "avg_time": 20, "issue": "促销分摊规则争议、活动确认延迟"},
+        "门店收入确认": {"total": 12, "anomalies": 4, "avg_time": 28, "issue": "收入确认时点争议、预收款处理"},
+        "科目重分类调整": {"total": 12, "anomalies": 1, "avg_time": 18, "issue": "预付账款重分类遗漏"},
+        "折旧计提过账": {"total": 12, "anomalies": 0, "avg_time": 8, "issue": "资产新增/处置未同步"},
+        "成本中心分摊": {"total": 12, "anomalies": 1, "avg_time": 12, "issue": "门店分摊基数争议"},
+        "税务数据提取": {"total": 12, "anomalies": 2, "avg_time": 15, "issue": "多门店税率差异、跨境税务"},
+        "多门店合并报表": {"total": 12, "anomalies": 4, "avg_time": 45, "issue": "内部调拨抵消、跨区域汇率"},
+        "月结报告生成": {"total": 12, "anomalies": 0, "avg_time": 10, "issue": "多门店数据核对"},
+    },
+    "service": {
+        "凭证完整性检查": {"total": 12, "anomalies": 1, "avg_time": 10, "issue": "凭证缺失、项目编号遗漏"},
+        "银行流水对账": {"total": 12, "anomalies": 2, "avg_time": 35, "issue": "项目回款流水延迟、手续费未入账"},
+        "项目成本结算": {"total": 12, "anomalies": 4, "avg_time": 50, "issue": "完工进度估算偏差、预算超支"},
+        "人力成本分摊": {"total": 12, "anomalies": 3, "avg_time": 30, "issue": "工时归集不准确、项目分摊争议"},
+        "往来科目对账": {"total": 12, "anomalies": 1, "avg_time": 20, "issue": "时间性差异、预收款项处理"},
+        "税务数据提取": {"total": 12, "anomalies": 1, "avg_time": 10, "issue": "跨境项目税务处理"},
+        "管理报表汇总": {"total": 12, "anomalies": 1, "avg_time": 15, "issue": "报表口径不一致、项目维度差异"},
+        "月结报告生成": {"total": 12, "anomalies": 0, "avg_time": 5, "issue": "格式调整、数据核对"},
+    },
 }
 
 # ── 知识沉淀库（历史处理记录）──
@@ -1097,9 +1116,50 @@ steps:"""
         else:
             st.metric("当前状态", "待启动", "点击开始演示")
 
+    # ── 异常热力图 ──
+    st.markdown("---")
+    st.subheader("月结异常热力图（历史数据）")
+    st.caption("过去12个月月结执行统计，异常率 = 异常次数 / 执行总次数 × 100%")
+
+    # 异常数据（从当前企业的历史记录计算）
+    _history = ANOMALY_HISTORY.get(st.session_state.client_template, {})
+    anomaly_data = {
+        "步骤": [s["name"] for s in current_steps],
+        "异常次数": [f"{_history.get(s['name'], {}).get('anomalies', 0)}/{_history.get(s['name'], {}).get('total', 12)}" for s in current_steps],
+        "异常率(%)": [round(_history.get(s['name'], {}).get('anomalies', 0) / _history.get(s['name'], {}).get('total', 12) * 100) for s in current_steps],
+        "平均处理时间(min)": [_history.get(s['name'], {}).get('avg_time', 10) for s in current_steps],
+        "常见问题": [_history.get(s['name'], {}).get('issue', '—') for s in current_steps],
+    }
+    anomaly_df = pd.DataFrame(anomaly_data)
+
+    # 用Plotly画热力图风格的条形图
+    fig_anomaly = go.Figure(go.Bar(
+        x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
+        marker_color=[
+            '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
+            for v in anomaly_data["异常率(%)"]
+        ],
+        text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
+        textposition='outside',
+    ))
+    fig_anomaly.update_layout(
+        height=300,
+        xaxis_title="月结步骤",
+        yaxis_title="异常率 (%)",
+        margin=dict(l=60, r=20, t=20, b=80),
+        font=dict(size=11),
+    )
+    st.plotly_chart(fig_anomaly, use_container_width=True)
+
+    # 异常详情表
+    st.markdown("**异常详情：**")
+    anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
+    anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
+    st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
+
     # Before vs After 对比图
     st.markdown("---")
-    st.subheader("️ Before vs After：月结流程时间对比")
+    st.subheader("Before vs After：月结流程时间对比")
 
     step_names = [s["name"] for s in current_steps]
     traditional_times = [s["duration"] * 6 for s in current_steps]  # 传统方式耗时（分钟）
@@ -1136,46 +1196,6 @@ steps:"""
         st.success(f"**AI方式总耗时**：{total_ai} 分钟（约 {total_ai//60} 小时）")
     with summary_col3:
         st.warning(f"**效率提升**：{save_pct}%")
-
-    # ── 异常热力图 ──
-    st.markdown("---")
-    st.subheader(" 月结异常热力图（历史数据）")
-    st.caption("过去12个月月结执行统计，异常率 = 异常次数 / 执行总次数 × 100%")
-    
-    # 异常数据（从历史记录计算，非硬编码）
-    anomaly_data = {
-        "步骤": [s["name"] for s in current_steps],
-        "异常次数": [f"{ANOMALY_HISTORY.get(s['name'], {}).get('anomalies', 0)}/{ANOMALY_HISTORY.get(s['name'], {}).get('total', 12)}" for s in current_steps],
-        "异常率(%)": [round(ANOMALY_HISTORY.get(s['name'], {}).get('anomalies', 0) / ANOMALY_HISTORY.get(s['name'], {}).get('total', 12) * 100) for s in current_steps],
-        "平均处理时间(min)": [ANOMALY_HISTORY.get(s['name'], {}).get('avg_time', 10) for s in current_steps],
-        "常见问题": [ANOMALY_HISTORY.get(s['name'], {}).get('issue', '—') for s in current_steps],
-    }
-    anomaly_df = pd.DataFrame(anomaly_data)
-    
-    # 用Plotly画热力图风格的条形图
-    fig_anomaly = go.Figure(go.Bar(
-        x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
-        marker_color=[
-            '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
-            for v in anomaly_data["异常率(%)"]
-        ],
-        text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
-        textposition='outside',
-    ))
-    fig_anomaly.update_layout(
-        height=300,
-        xaxis_title="月结步骤",
-        yaxis_title="异常率 (%)",
-        margin=dict(l=60, r=20, t=20, b=80),
-        font=dict(size=11),
-    )
-    st.plotly_chart(fig_anomaly, use_container_width=True)
-    
-    # 异常详情表
-    st.markdown("**异常详情：**")
-    anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
-    anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
-    st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
 
 # ═══════════════════════════════════════
 # Tab 3: 系统架构
