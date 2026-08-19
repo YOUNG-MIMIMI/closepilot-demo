@@ -704,57 +704,47 @@ with tab_chat:
         # 智能联络
         st.markdown("---")
         st.subheader("📧 智能联络（一键协调）")
-        st.caption("AI自动识别责任人，生成邮件，一键发送")
+        st.caption("AI自动识别责任人并生成邮件草稿，可直接编辑后发送")
 
         # 模拟第一个联络场景
         contact_scenario = "银行流水差异"
         contact = CONTACT_MAP[contact_scenario]
 
-        st.markdown(
-            f"<div style='background:#E3F2FD; border:1px solid #90CAF9; border-radius:8px; "
-            f"padding:14px 18px; margin:8px 0;'>"
-            f"<div style='font-weight:700; color:#1565C0; margin-bottom:10px;'>"
-            f"📧 联络：{contact['person']} — {contact['department']}</div>"
-            f"<div style='font-size:0.82rem; color:#555; margin-bottom:4px;'>"
-            f"收件人：{contact['email']}</div>"
-            f"<div style='font-size:0.82rem; color:#555; margin-bottom:8px;'>"
-            f"主题：【月结确认】工行流水差异 ¥2,340 需确认</div>"
-            f"<div style='background:white; border-radius:6px; padding:10px 12px; "
-            f"font-size:0.85rem; color:#333; line-height:1.6; border:1px solid #E0E0E0;'>"
-            f"王明你好，<br><br>"
-            f"3月月结中发现以下差异需要确认：<br>"
-            f"• 工行2月15日流水 #28471，金额差异 ¥2,340，SAP无对应凭证<br>"
-            f"• 根据历史记录，该差异通常为银行手续费未入账<br><br>"
-            f"请确认：<br>"
-            f"1. 该笔款项是否为银行手续费？<br>"
-            f"2. 如确认，我将直接计入“财务费用-手续费”科目<br><br>"
-            f"请在3月31日前回复，谢谢！<br>"
-            f"<span style='color:#999; font-size:0.8rem;'>— ClosePilot 自动发送</span>"
-            f"</div>"
-            f"</div>",
-            unsafe_allow_html=True
+        # 联系人信息
+        st.info(f"**📧 收件人**：{contact['person']}（{contact['department']}）\n"
+                f"**收件地址**：{contact['email']}")
+
+        # 可编辑的邮件主题和正文
+        default_subject = "【月结确认】工行流水差异 ¥2,340 需确认"
+        default_body = (
+            "王明你好，\n\n"
+            "3月月结中发现以下差异需要确认：\n"
+            "• 工行2月15日流水 #28471，金额差异 ¥2,340，SAP无对应凭证\n"
+            "• 根据历史记录，该差异通常为银行手续费未入账\n\n"
+            "请确认：\n"
+            "1. 该笔款项是否为银行手续费？\n"
+            "2. 如确认，我将直接计入“财务费用-手续费”科目\n\n"
+            "请在3月31日前回复，谢谢！\n\n"
+            "— ClosePilot 自动发送"
         )
 
-        contact_btn_col1, contact_btn_col2, contact_btn_col3 = st.columns([1, 1, 2])
-        with contact_btn_col1:
-            send_clicked = st.button("✅ 确认发送", type="primary", use_container_width=True, key="send_contact")
-        with contact_btn_col2:
-            edit_clicked = st.button("✏️ 修改后发送", use_container_width=True, key="edit_contact")
-        with contact_btn_col3:
-            st.caption("AI已根据差异类型自动匹配责任人并生成邮件内容")
+        email_subject = st.text_input("邮件主题", value=default_subject, key="email_subject")
+        email_body = st.text_area("邮件正文", value=default_body, height=220, key="email_body")
+
+        st.caption("💡 可直接在上方编辑邮件内容，确认无误后点击发送")
+        send_clicked = st.button("📧 发送邮件", type="primary", use_container_width=True, key="send_contact")
 
         if send_clicked:
             st.session_state.contact_log.append({
                 "to": contact["email"],
+                "to_name": contact["person"],
+                "subject": email_subject,
                 "scenario": contact_scenario,
                 "time": time.strftime("%H:%M:%S"),
                 "status": "已发送"
             })
-            st.success(f"✅ 邮件已发送至 {contact['email']}，等待回复。")
+            st.success(f"✅ 邮件已发送至 {contact['person']} <{contact['email']}>")
             st.rerun()
-
-        if edit_clicked:
-            st.info("✏️ 邮件内容已复制到剪贴板，你可以在邮件客户端中修改后发送。")
 
         # 显示已发送记录
         if st.session_state.contact_log:
@@ -762,11 +752,11 @@ with tab_chat:
             st.subheader("📨 联络记录")
             for log in st.session_state.contact_log:
                 st.markdown(
-                    f"<div style='font-size:0.85rem; padding:6px 10px; margin:4px 0; "
+                    f"<div style='font-size:0.85rem; padding:8px 12px; margin:4px 0; "
                     f"background:#F5F5F5; border-radius:6px;'>"
                     f"<span style='color:#888;'>[{log['time']}]</span> "
-                    f"<span style='color:#1565C0;'>→ {log['to']}</span> "
-                    f"<span style='color:#333;'>({log['scenario']})</span> "
+                    f"<span style='color:#1565C0; font-weight:600;'>→ {log.get('to_name', log['to'])}</span> "
+                    f"<span style='color:#333;'>{log.get('subject', log['scenario'])}</span> "
                     f"<span style='color:#4CAF50; font-weight:600;'>{log['status']}</span>"
                     f"</div>",
                     unsafe_allow_html=True
