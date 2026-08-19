@@ -144,22 +144,74 @@ if "contact_log" not in st.session_state:
 if "client_template" not in st.session_state:
     st.session_state.client_template = "manufacturing"
 
-# ── 月结子流程定义 ──
-MONTH_END_STEPS = [
-    {"id": 1, "name": "凭证完整性检查", "system": "SAP FI", "duration": 8, "risk": "低"},
-    {"id": 2, "name": "银行流水对账", "system": "SAP FI + 银行系统", "duration": 15, "risk": "中"},
-    {"id": 3, "name": "往来科目对账", "system": "SAP FI/CO", "duration": 12, "risk": "中"},
-    {"id": 4, "name": "科目重分类调整", "system": "SAP FI", "duration": 10, "risk": "高",
-     "confirm_detail": "拟调整分录 47 笔，总金额 ¥12,450,000\n调整原因：长期应收款重分类至非流动资产\n影响科目：1221010000 → 1501010000\nT-Code: FAGL_FC_VAL"},
-    {"id": 5, "name": "折旧计提过账", "system": "SAP AA", "duration": 6, "risk": "低"},
-    {"id": 6, "name": "成本中心分摊", "system": "SAP CO", "duration": 10, "risk": "中"},
-    {"id": 7, "name": "收入成本匹配校验", "system": "SAP CO + CRM", "duration": 14, "risk": "高",
-     "confirm_detail": "发现3笔收入成本不匹配，差异金额 ¥284,500\n订单#SO-20240315 收入已确认但成本未归集\n订单#SO-20240322 成本多计 ¥156,000\n建议：暂估入账或冲回调整"},
-    {"id": 8, "name": "税务数据提取", "system": "SAP FI + 税务系统", "duration": 8, "risk": "中"},
-    {"id": 9, "name": "合并报表数据汇总", "system": "SAP BPC", "duration": 12, "risk": "高",
-     "confirm_detail": "3家子公司数据已提取，发现2项合并调整\n华东公司内部交易抵消 ¥3,200,000\n华南公司汇率差异调整 ¥187,000\n合并后净利润：¥45,680,000"},
-    {"id": 10, "name": "月结报告生成", "system": "SAP + BI", "duration": 5, "risk": "低"},
-]
+# ── 月结子流程定义（多客户模板）──
+CLIENT_TEMPLATES = {
+    "manufacturing": {
+        "name": "制造集团A",
+        "steps": 10,
+        "modules": "FI/CO/AA/BPC",
+        "features": "含成本核算、折旧计提、合并报表",
+        "data": [
+            {"id": 1, "name": "凭证完整性检查", "system": "SAP FI", "duration": 8, "risk": "低"},
+            {"id": 2, "name": "银行流水对账", "system": "SAP FI + 银行系统", "duration": 15, "risk": "中"},
+            {"id": 3, "name": "往来科目对账", "system": "SAP FI/CO", "duration": 12, "risk": "中"},
+            {"id": 4, "name": "科目重分类调整", "system": "SAP FI", "duration": 10, "risk": "高",
+             "confirm_detail": "拟调整分录 47 笔，总金额 ¥12,450,000\n调整原因：长期应收款重分类至非流动资产\n影响科目：1221010000 → 1501010000\nT-Code: FAGL_FC_VAL"},
+            {"id": 5, "name": "折旧计提过账", "system": "SAP AA", "duration": 6, "risk": "低"},
+            {"id": 6, "name": "成本中心分摊", "system": "SAP CO", "duration": 10, "risk": "中"},
+            {"id": 7, "name": "收入成本匹配校验", "system": "SAP CO + CRM", "duration": 14, "risk": "高",
+             "confirm_detail": "发现3笔收入成本不匹配，差异金额 ¥284,500\n订单#SO-20240315 收入已确认但成本未归集\n订单#SO-20240322 成本多计 ¥156,000\n建议：暂估入账或冲回调整"},
+            {"id": 8, "name": "税务数据提取", "system": "SAP FI + 税务系统", "duration": 8, "risk": "中"},
+            {"id": 9, "name": "合并报表数据汇总", "system": "SAP BPC", "duration": 12, "risk": "高",
+             "confirm_detail": "3家子公司数据已提取，发现2项合并调整\n华东公司内部交易抵消 ¥3,200,000\n华南公司汇率差异调整 ¥187,000\n合并后净利润：¥45,680,000"},
+            {"id": 10, "name": "月结报告生成", "system": "SAP + BI", "duration": 5, "risk": "低"},
+        ],
+    },
+    "retail": {
+        "name": "零售集团B",
+        "steps": 12,
+        "modules": "FI/CO/MM/SD",
+        "features": "含库存估值、促销分摊、多门店合并",
+        "data": [
+            {"id": 1, "name": "凭证完整性检查", "system": "SAP FI", "duration": 8, "risk": "低"},
+            {"id": 2, "name": "银行流水对账", "system": "SAP FI + 银行系统", "duration": 15, "risk": "中"},
+            {"id": 3, "name": "往来科目对账", "system": "SAP FI/CO", "duration": 12, "risk": "中"},
+            {"id": 4, "name": "库存估值调整", "system": "SAP MM", "duration": 18, "risk": "高",
+             "confirm_detail": "发现5个SKU库存估值差异，总金额 ¥892,000\nSKU-A001: 先进先出法 vs 加权平均法差异 ¥340,000\nSKU-B015: 过期商品未计提跌价准备 ¥210,000\n建议：按加权平均法重估，计提跌价准备"},
+            {"id": 5, "name": "促销费用分摊", "system": "SAP CO + CRM", "duration": 10, "risk": "中"},
+            {"id": 6, "name": "门店收入确认", "system": "SAP SD + FI", "duration": 14, "risk": "高",
+             "confirm_detail": "3家门店收入确认时点差异\n门店#SH-001: 已发货未开票 ¥560,000\n门店#BJ-003: 预收款未发货 ¥230,000\n建议：按发货时点确认收入"},
+            {"id": 7, "name": "科目重分类调整", "system": "SAP FI", "duration": 10, "risk": "高",
+             "confirm_detail": "拟调整分录 32 笔，总金额 ¥8,750,000\n调整原因：预付账款重分类至其他流动资产"},
+            {"id": 8, "name": "折旧计提过账", "system": "SAP AA", "duration": 6, "risk": "低"},
+            {"id": 9, "name": "成本中心分摊", "system": "SAP CO", "duration": 10, "risk": "中"},
+            {"id": 10, "name": "税务数据提取", "system": "SAP FI + 税务系统", "duration": 8, "risk": "中"},
+            {"id": 11, "name": "多门店合并报表", "system": "SAP BPC", "duration": 15, "risk": "高",
+             "confirm_detail": "12家门店数据已提取，发现3项合并调整\n内部调拨抵消 ¥1,800,000\n跨区域汇率差异 ¥95,000"},
+            {"id": 12, "name": "月结报告生成", "system": "SAP + BI", "duration": 5, "risk": "低"},
+        ],
+    },
+    "service": {
+        "name": "服务集团C",
+        "steps": 8,
+        "modules": "FI/CO/PS",
+        "features": "含项目结算、人力成本分摊",
+        "data": [
+            {"id": 1, "name": "凭证完整性检查", "system": "SAP FI", "duration": 8, "risk": "低"},
+            {"id": 2, "name": "银行流水对账", "system": "SAP FI + 银行系统", "duration": 12, "risk": "中"},
+            {"id": 3, "name": "项目成本结算", "system": "SAP PS + CO", "duration": 16, "risk": "高",
+             "confirm_detail": "8个在建项目成本结算\n项目#P-2026-003: 已发生成本 ¥2,400,000，完工进度 65%\n项目#P-2026-007: 预算超支 12%，需项目经理确认\n建议：按完工百分比法确认收入"},
+            {"id": 4, "name": "人力成本分摊", "system": "SAP CO + HR", "duration": 14, "risk": "中"},
+            {"id": 5, "name": "往来科目对账", "system": "SAP FI/CO", "duration": 10, "risk": "中"},
+            {"id": 6, "name": "税务数据提取", "system": "SAP FI + 税务系统", "duration": 8, "risk": "中"},
+            {"id": 7, "name": "管理报表汇总", "system": "SAP + BI", "duration": 10, "risk": "低"},
+            {"id": 8, "name": "月结报告生成", "system": "SAP + BI", "duration": 5, "risk": "低"},
+        ],
+    },
+}
+
+# 默认使用制造集团模板
+MONTH_END_STEPS = CLIENT_TEMPLATES["manufacturing"]["data"]
 
 # ── 模拟Agent对话回复 ──
 AGENT_RESPONSES = {
@@ -725,32 +777,35 @@ with tab_dashboard:
         st.rerun()
 
     # 根据模板显示不同的流程说明
-    template_info = {
-        "manufacturing": {
-            "name": "制造集团A",
-            "steps": 10,
-            "features": "含成本核算、折旧计提、合并报表",
-            "modules": "FI/CO/AA/BPC",
-        },
-        "retail": {
-            "name": "零售集团B",
-            "steps": 12,
-            "features": "含库存估值、促销分摊、多门店合并",
-            "modules": "FI/CO/MM/SD",
-        },
-        "service": {
-            "name": "服务集团C",
-            "steps": 8,
-            "features": "含项目结算、人力成本分摊",
-            "modules": "FI/CO/PS",
-        },
-    }
-    current_tpl = template_info[st.session_state.client_template]
+    current_tpl = CLIENT_TEMPLATES[st.session_state.client_template]
+    current_steps = current_tpl["data"]
     st.info(
         f"**{current_tpl['name']}** — {current_tpl['steps']}个子流程 | "
         f"涉及模块：{current_tpl['modules']} | "
         f"特色：{current_tpl['features']}"
     )
+
+    # 配置查看器
+    with st.expander("📝 查看当前配置（YAML格式）", expanded=False):
+        config_yaml = f"""# {current_tpl['name']} 月结流程配置
+# 修改此配置即可切换不同客户的月结流程，无需改代码
+
+client: {current_tpl['name']}
+modules: {current_tpl['modules']}
+features: {current_tpl['features']}
+total_steps: {current_tpl['steps']}
+
+steps:"""
+        for s in current_steps:
+            config_yaml += f"""
+  - id: {s['id']}
+    name: {s['name']}
+    system: {s['system']}
+    duration: {s['duration']}min
+    risk: {s['risk']}
+    auto_confirm: {'true' if s['risk'] != '高' else 'false'}  # 高风险步骤需人工确认"""
+        st.code(config_yaml, language="yaml")
+        st.caption("💡 实际项目中，此配置文件由业务顾问维护，修改后系统自动生效")
 
     # 控制按钮
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 3])
@@ -774,8 +829,8 @@ with tab_dashboard:
         st.rerun()
 
     # 流程步骤展示
-    total_steps = len(MONTH_END_STEPS)
-    completed = sum(1 for s in MONTH_END_STEPS if st.session_state.process_status.get(s["id"]) == "done")
+    total_steps = len(current_steps)
+    completed = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done")
     progress = completed / total_steps
 
     st.progress(progress, text=f"执行进度：{completed}/{total_steps} 子流程")
@@ -783,7 +838,7 @@ with tab_dashboard:
     st.markdown("---")
 
     # 步骤卡片
-    for step in MONTH_END_STEPS:
+    for step in current_steps:
         status = st.session_state.process_status.get(step["id"], "pending")
 
         if status == "done":
@@ -831,7 +886,7 @@ with tab_dashboard:
             st.session_state.demo_phase = "done"
             st.rerun()
 
-        step = MONTH_END_STEPS[idx]
+        step = current_steps[idx]
 
         if sub == "start":
             # 标记当前步骤为执行中
@@ -855,7 +910,7 @@ with tab_dashboard:
 
     if st.session_state.demo_phase == "confirm":
         idx = st.session_state.demo_step_idx
-        step = MONTH_END_STEPS[idx]
+        step = current_steps[idx]
         detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
 
         # 显示Human-in-the-Loop确认对话框
@@ -905,7 +960,7 @@ with tab_dashboard:
     # ─ 驳回修改阶段：输入修改意见 ──
     if st.session_state.demo_phase == "revise":
         idx = st.session_state.demo_step_idx
-        step = MONTH_END_STEPS[idx]
+        step = current_steps[idx]
 
         st.markdown("---")
         st.error(f" **Step {step['id']}「{step['name']}」已被驳回**，请说明修改要求，Agent将调整方案后重新提交确认。")
@@ -937,7 +992,7 @@ with tab_dashboard:
     # ── 重新确认阶段：Agent调整后的方案 ──
     if st.session_state.demo_phase == "reconfirm":
         idx = st.session_state.demo_step_idx
-        step = MONTH_END_STEPS[idx]
+        step = current_steps[idx]
         detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
         reason = st.session_state.demo_reject_reason
 
@@ -985,14 +1040,14 @@ with tab_dashboard:
     st.markdown("---")
     st.subheader("📈 执行统计")
 
-    running_count = sum(1 for s in MONTH_END_STEPS if st.session_state.process_status.get(s["id"]) == "running")
-    confirm_count = sum(1 for s in MONTH_END_STEPS if st.session_state.process_status.get(s["id"]) == "confirm")
-    auto_done = sum(1 for s in MONTH_END_STEPS if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] != "高")
-    manual_done = sum(1 for s in MONTH_END_STEPS if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] == "高")
+    running_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "running")
+    confirm_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "confirm")
+    auto_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] != "高")
+    manual_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] == "高")
 
     stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
     with stat_col1:
-        elapsed = sum(s["duration"] for s in MONTH_END_STEPS[:max(0, st.session_state.demo_step_idx + 1)] if st.session_state.process_status.get(s["id"]) in ("done", "confirm"))
+        elapsed = sum(s["duration"] for s in current_steps[:max(0, st.session_state.demo_step_idx + 1)] if st.session_state.process_status.get(s["id"]) in ("done", "confirm"))
         st.metric("已用时间", f"{elapsed} 分钟", "传统方式需数天")
     with stat_col2:
         st.metric("已完成", f"{completed}/{total_steps}", f"自动化 {auto_done} + 人工确认 {manual_done}")
@@ -1014,9 +1069,9 @@ with tab_dashboard:
     st.markdown("---")
     st.subheader("️ Before vs After：月结流程时间对比")
 
-    step_names = [s["name"] for s in MONTH_END_STEPS]
-    traditional_times = [s["duration"] * 6 for s in MONTH_END_STEPS]  # 传统方式耗时（分钟）
-    ai_times = [s["duration"] for s in MONTH_END_STEPS]  # AI方式耗时
+    step_names = [s["name"] for s in current_steps]
+    traditional_times = [s["duration"] * 6 for s in current_steps]  # 传统方式耗时（分钟）
+    ai_times = [s["duration"] for s in current_steps]  # AI方式耗时
 
     fig_compare = go.Figure()
     fig_compare.add_trace(go.Bar(
