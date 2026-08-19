@@ -1138,9 +1138,9 @@ steps:"""
     ]
     anomaly_data = {
         "步骤": [s["name"] for s in current_steps],
-        "异常率(%)": _anomaly_rates[:n],
-        "平均处理时间(min)": _anomaly_times[:n],
-        "常见问题": _anomaly_issues[:n],
+        "异常率(%)": [_anomaly_rates[i % len(_anomaly_rates)] for i in range(n)],
+        "平均处理时间(min)": [_anomaly_times[i % len(_anomaly_times)] for i in range(n)],
+        "常见问题": [_anomaly_issues[i % len(_anomaly_issues)] for i in range(n)],
     }
     anomaly_df = pd.DataFrame(anomaly_data)
     
