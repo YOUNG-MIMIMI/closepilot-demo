@@ -768,12 +768,24 @@ with tab_dashboard:
 
     if select_manufacturing:
         st.session_state.client_template = "manufacturing"
+        st.session_state.process_status = {}
+        st.session_state.demo_step_idx = -1
+        st.session_state.demo_phase = "idle"
+        st.session_state.demo_sub = "start"
         st.rerun()
     if select_retail:
         st.session_state.client_template = "retail"
+        st.session_state.process_status = {}
+        st.session_state.demo_step_idx = -1
+        st.session_state.demo_phase = "idle"
+        st.session_state.demo_sub = "start"
         st.rerun()
     if select_service:
         st.session_state.client_template = "service"
+        st.session_state.process_status = {}
+        st.session_state.demo_step_idx = -1
+        st.session_state.demo_phase = "idle"
+        st.session_state.demo_sub = "start"
         st.rerun()
 
     # 根据模板显示不同的流程说明
