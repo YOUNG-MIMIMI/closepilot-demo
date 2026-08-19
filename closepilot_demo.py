@@ -788,24 +788,22 @@ with tab_dashboard:
     # 配置查看器
     with st.expander("📝 查看当前配置（YAML格式）", expanded=False):
         config_yaml = f"""# {current_tpl['name']} 月结流程配置
-# 修改此配置即可切换不同客户的月结流程，无需改代码
+# 业务顾问维护此文件，定义月结流程的步骤、系统和风险等级
+# 系统根据 risk 自动判断是否需要人工确认，无需额外配置
 
 client: {current_tpl['name']}
 modules: {current_tpl['modules']}
 features: {current_tpl['features']}
-total_steps: {current_tpl['steps']}
 
 steps:"""
         for s in current_steps:
+            comment = "  # 高风险，需人工确认" if s["risk"] == "高" else ""
             config_yaml += f"""
-  - id: {s['id']}
-    name: {s['name']}
+  - name: {s['name']}
     system: {s['system']}
-    duration: {s['duration']}min
-    risk: {s['risk']}
-    auto_confirm: {'true' if s['risk'] != '高' else 'false'}  # 高风险步骤需人工确认"""
+    risk: {s['risk']}{comment}"""
         st.code(config_yaml, language="yaml")
-        st.caption("💡 实际项目中，此配置文件由业务顾问维护，修改后系统自动生效")
+        st.caption("💡 实际项目中，业务顾问修改此配置即可适配不同客户，无需改代码")
 
     # 控制按钮
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 3])
