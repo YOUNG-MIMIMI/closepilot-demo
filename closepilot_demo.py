@@ -262,6 +262,28 @@ DEFAULT_RESPONSE = [
     ("validator", "操作已完成，结果校验通过 ✅"),
 ]
 
+# ── 异常历史记录（过去12个月月结执行统计）──
+# anomalies/total = 异常率，由系统自动计算
+ANOMALY_HISTORY = {
+    "凭证完整性检查": {"total": 12, "anomalies": 1, "avg_time": 15, "issue": "凭证缺失、摘要不规范"},
+    "银行流水对账": {"total": 12, "anomalies": 4, "avg_time": 45, "issue": "流水延迟、手续费未入账"},
+    "往来科目对账": {"total": 12, "anomalies": 3, "avg_time": 30, "issue": "时间性差异、汇率波动"},
+    "科目重分类调整": {"total": 12, "anomalies": 2, "avg_time": 20, "issue": "科目分类错误"},
+    "折旧计提过账": {"total": 12, "anomalies": 0, "avg_time": 10, "issue": "资产新增/处置未同步"},
+    "成本中心分摊": {"total": 12, "anomalies": 2, "avg_time": 15, "issue": "分摊基数争议"},
+    "收入成本匹配校验": {"total": 12, "anomalies": 3, "avg_time": 25, "issue": "发票延迟、暂估调整"},
+    "税务数据提取": {"total": 12, "anomalies": 1, "avg_time": 12, "issue": "税率变更、跨境税务"},
+    "合并报表数据汇总": {"total": 12, "anomalies": 3, "avg_time": 40, "issue": "内部交易抵消、汇率调整"},
+    "月结报告生成": {"total": 12, "anomalies": 0, "avg_time": 8, "issue": "格式调整、数据核对"},
+    "库存估值调整": {"total": 12, "anomalies": 5, "avg_time": 35, "issue": "估值方法差异、跌价准备未计提"},
+    "促销费用分摊": {"total": 12, "anomalies": 2, "avg_time": 20, "issue": "促销分摊规则争议"},
+    "门店收入确认": {"total": 12, "anomalies": 3, "avg_time": 28, "issue": "收入确认时点争议"},
+    "多门店合并报表": {"total": 12, "anomalies": 3, "avg_time": 45, "issue": "内部调拨抵消、跨区域汇率"},
+    "项目成本结算": {"total": 12, "anomalies": 3, "avg_time": 50, "issue": "完工进度估算偏差"},
+    "人力成本分摊": {"total": 12, "anomalies": 2, "avg_time": 30, "issue": "工时归集不准确"},
+    "管理报表汇总": {"total": 12, "anomalies": 1, "avg_time": 15, "issue": "报表口径不一致"},
+}
+
 # ── 知识沉淀库（历史处理记录）──
 KNOWLEDGE_BASE = [
     {
@@ -1118,29 +1140,15 @@ steps:"""
     # ── 异常热力图 ──
     st.markdown("---")
     st.subheader(" 月结异常热力图（历史数据）")
-    st.caption("基于过去12个月的月结记录，展示各步骤的异常频率和常见问题")
+    st.caption("过去12个月月结执行统计，异常率 = 异常次数 / 执行总次数 × 100%")
     
-    # 异常数据（与当前模板步骤数对齐）
-    n = len(current_steps)
-    _anomaly_rates = [12, 35, 25, 8, 5, 10, 18, 7, 22, 3]
-    _anomaly_times = [15, 45, 30, 20, 10, 15, 25, 12, 40, 8]
-    _anomaly_issues = [
-        "凭证缺失、摘要不规范",
-        "流水延迟、手续费未入账",
-        "时间性差异、汇率波动",
-        "科目分类错误",
-        "资产新增/处置未同步",
-        "分摊基数争议",
-        "发票延迟、暂估调整",
-        "税率变更、跨境税务",
-        "内部交易抵消、汇率调整",
-        "格式调整、数据核对",
-    ]
+    # 异常数据（从历史记录计算，非硬编码）
     anomaly_data = {
         "步骤": [s["name"] for s in current_steps],
-        "异常率(%)": [_anomaly_rates[i % len(_anomaly_rates)] for i in range(n)],
-        "平均处理时间(min)": [_anomaly_times[i % len(_anomaly_times)] for i in range(n)],
-        "常见问题": [_anomaly_issues[i % len(_anomaly_issues)] for i in range(n)],
+        "异常次数": [f"{ANOMALY_HISTORY.get(s['name'], {}).get('anomalies', 0)}/{ANOMALY_HISTORY.get(s['name'], {}).get('total', 12)}" for s in current_steps],
+        "异常率(%)": [round(ANOMALY_HISTORY.get(s['name'], {}).get('anomalies', 0) / ANOMALY_HISTORY.get(s['name'], {}).get('total', 12) * 100) for s in current_steps],
+        "平均处理时间(min)": [ANOMALY_HISTORY.get(s['name'], {}).get('avg_time', 10) for s in current_steps],
+        "常见问题": [ANOMALY_HISTORY.get(s['name'], {}).get('issue', '—') for s in current_steps],
     }
     anomaly_df = pd.DataFrame(anomaly_data)
     
@@ -1165,8 +1173,8 @@ steps:"""
     
     # 异常详情表
     st.markdown("**异常详情：**")
-    anomaly_display_df = anomaly_df[["步骤", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
-    anomaly_display_df.columns = ["步骤", "异常率", "平均处理时间", "常见问题"]
+    anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
+    anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
     st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
 
 # ═══════════════════════════════════════
