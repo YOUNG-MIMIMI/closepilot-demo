@@ -1104,55 +1104,55 @@ steps:"""
         st.success(f"**AI方式总耗时**：{total_ai} 分钟（约 {total_ai//60} 小时）")
     with summary_col3:
         st.warning(f"**效率提升**：{save_pct}%")
-        
-        # ── 异常热力图 ─
-        st.markdown("---")
-        st.subheader(" 月结异常热力图（历史数据）")
-        st.caption("基于过去12个月的月结记录，展示各步骤的异常频率和常见问题")
-        
-        anomaly_data = {
-            "步骤": ["凭证检查", "银行对账", "往来对账", "重分类调整", "折旧计提", "成本分摊", "收支匹配", "税务提取", "合并报表", "报告生成"],
-            "异常率(%)": [12, 35, 25, 8, 5, 10, 18, 7, 22, 3],
-            "平均处理时间(min)": [15, 45, 30, 20, 10, 15, 25, 12, 40, 8],
-            "常见问题": [
-                "凭证缺失、摘要不规范",
-                "流水延迟、手续费未入账",
-                "时间性差异、汇率波动",
-                "科目分类错误",
-                "资产新增/处置未同步",
-                "分摊基数争议",
-                "发票延迟、暂估调整",
-                "税率变更、跨境税务",
-                "内部交易抵消、汇率调整",
-                "格式调整、数据核对",
-            ],
-        }
-        anomaly_df = pd.DataFrame(anomaly_data)
-        
-        # 用Plotly画热力图风格的条形图
-        fig_anomaly = go.Figure(go.Bar(
-            x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
-            marker_color=[
-                '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
-                for v in anomaly_data["异常率(%)"]
-            ],
-            text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
-            textposition='outside',
-        ))
-        fig_anomaly.update_layout(
-            height=300,
-            xaxis_title="月结步骤",
-            yaxis_title="异常率 (%)",
-            margin=dict(l=60, r=20, t=20, b=80),
-            font=dict(size=11),
-        )
-        st.plotly_chart(fig_anomaly, use_container_width=True)
-        
-        # 异常详情表
-        st.markdown("**异常详情：**")
-        anomaly_display_df = anomaly_df[["步骤", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
-        anomaly_display_df.columns = ["步骤", "异常率", "平均处理时间", "常见问题"]
-        st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
+
+    # ── 异常热力图 ──
+    st.markdown("---")
+    st.subheader(" 月结异常热力图（历史数据）")
+    st.caption("基于过去12个月的月结记录，展示各步骤的异常频率和常见问题")
+    
+    anomaly_data = {
+        "步骤": [s["name"] for s in current_steps],
+        "异常率(%)": [12, 35, 25, 8, 5, 10, 18, 7, 22, 3][:len(current_steps)],
+        "平均处理时间(min)": [15, 45, 30, 20, 10, 15, 25, 12, 40, 8][:len(current_steps)],
+        "常见问题": [
+            "凭证缺失、摘要不规范",
+            "流水延迟、手续费未入账",
+            "时间性差异、汇率波动",
+            "科目分类错误",
+            "资产新增/处置未同步",
+            "分摊基数争议",
+            "发票延迟、暂估调整",
+            "税率变更、跨境税务",
+            "内部交易抵消、汇率调整",
+            "格式调整、数据核对",
+        ][:len(current_steps)],
+    }
+    anomaly_df = pd.DataFrame(anomaly_data)
+    
+    # 用Plotly画热力图风格的条形图
+    fig_anomaly = go.Figure(go.Bar(
+        x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
+        marker_color=[
+            '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
+            for v in anomaly_data["异常率(%)"]
+        ],
+        text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
+        textposition='outside',
+    ))
+    fig_anomaly.update_layout(
+        height=300,
+        xaxis_title="月结步骤",
+        yaxis_title="异常率 (%)",
+        margin=dict(l=60, r=20, t=20, b=80),
+        font=dict(size=11),
+    )
+    st.plotly_chart(fig_anomaly, use_container_width=True)
+    
+    # 异常详情表
+    st.markdown("**异常详情：**")
+    anomaly_display_df = anomaly_df[["步骤", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
+    anomaly_display_df.columns = ["步骤", "异常率", "平均处理时间", "常见问题"]
+    st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
 
 # ═══════════════════════════════════════
 # Tab 3: 系统架构
