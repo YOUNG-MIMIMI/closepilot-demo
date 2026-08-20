@@ -520,861 +520,862 @@ with col4:
 
 st.markdown("---")
 
-# ── Tab 布局 ─
-tab_architecture, tab_roi = st.tabs([
-    "️ 系统架构",
+# -- Tab 布局 --
+tab_main, tab_architecture, tab_roi = st.tabs([
+    " ClosePilot",
+    "🏗️ 系统架构",
     "💰 ROI 计算器"
 ])
+with tab_main:
+    # ═════════════════════════════════════
+    # 主界面：对话 + 看板（左右两栏）
+    # ══════════════════════════════════════
 
-# ═════════════════════════════════════
-# 主界面：对话 + 看板（左右两栏）
-# ══════════════════════════════════════
+    # ── 公司选择 ──
+    st.subheader("🏢 客户流程配置")
+    st.caption("不同客户的月结流程不同，通过配置切换，无需改代码")
 
-# ── 公司选择 ──
-st.subheader("🏢 客户流程配置")
-st.caption("不同客户的月结流程不同，通过配置切换，无需改代码")
-
-template_col1, template_col2, template_col3 = st.columns(3)
-with template_col1:
-    select_manufacturing = st.button(
-        "🏭 制造集团A（10步）",
-        use_container_width=True,
-        type="primary" if st.session_state.client_template == "manufacturing" else "secondary",
-        key="tpl_mfg"
-    )
-with template_col2:
-    select_retail = st.button(
-        "🛒 零售集团B（12步）",
-        use_container_width=True,
-        type="primary" if st.session_state.client_template == "retail" else "secondary",
-        key="tpl_retail"
-    )
-with template_col3:
-    select_service = st.button(
-        "💼 服务集团C（8步）",
-        use_container_width=True,
-        type="primary" if st.session_state.client_template == "service" else "secondary",
-        key="tpl_service"
-    )
-
-if select_manufacturing:
-    st.session_state.client_template = "manufacturing"
-    st.session_state.process_status = {}
-    st.session_state.demo_step_idx = -1
-    st.session_state.demo_phase = "idle"
-    st.session_state.demo_sub = "start"
-    st.session_state.precheck_done = False
-    st.rerun()
-if select_retail:
-    st.session_state.client_template = "retail"
-    st.session_state.process_status = {}
-    st.session_state.demo_step_idx = -1
-    st.session_state.demo_phase = "idle"
-    st.session_state.demo_sub = "start"
-    st.session_state.precheck_done = False
-    st.rerun()
-if select_service:
-    st.session_state.client_template = "service"
-    st.session_state.process_status = {}
-    st.session_state.demo_step_idx = -1
-    st.session_state.demo_phase = "idle"
-    st.session_state.demo_sub = "start"
-    st.session_state.precheck_done = False
-    st.rerun()
-
-current_tpl = CLIENT_TEMPLATES[st.session_state.client_template]
-current_steps = current_tpl["data"]
-st.info(
-    f"**{current_tpl['name']}** — {current_tpl['steps']}个子流程 | "
-    f"涉及模块：{current_tpl['modules']} | "
-    f"特色：{current_tpl['features']}"
-)
-
-# ── 左右两栏：对话区 + 看板区 ──
-chat_col, dashboard_col = st.columns([3, 2])
-
-# ══════════════════════════════════════
-# 左侧：对话区 + SAP终端
-# ══════════════════════════════════════
-with chat_col:
-    st.subheader("💬 与 ClosePilot 对话")
-    st.caption("输入财务指令，观察多Agent协同工作过程")
-
-    # SAP操作日志映射
-    SAP_ACTION_MAP = {
-        "planner": [
-            "CALL BAPI: BAPI_DOCUMENT_GETLIST( DOC_TYPE = 'FIAA' )",
-            "RFC: RFC_READ_TABLE( QUERY_TABLE = 'BKPF' )",
-            "ANALYZE: 识别月结任务依赖图...",
-        ],
-        "executor": [
-            "CALL BAPI: BAPI_ACC_DOCUMENT_POST( DOC_HEADER, DOC_ITEMS )",
-            "RFC: RFC_CALL_FUNCTION 'BAPI_AR_ACC_GETOPENITEMS'",
-            "EXECUTE: POSTING_RUN( COMPANY_CODE = '1000', FISCAL_PERIOD = '03' )",
-            "CALL BAPI: BAPI_GL_ACC_EXISTENCECHECK( GL_ACCOUNT = '11220000' )",
-            "DATA_SYNC: 银行流水接口 → 同步 2,847 条记录",
-            "CALL BAPI: BAPI_FIXEDASSET_OVRTAKE_CREATE()",
-        ],
-        "validator": [
-            "VALIDATE: CHECK_BALANCE( DEBIT = 12,450,000, CREDIT = 12,450,000 ) → PASS",
-            "AUDIT: 操作日志已写入 /LOG/CLOSEPILOT_AUDIT_202603",
-            "COMPLIANCE: 敏感数据加密传输 (TLS 1.3, AES-256)",
-        ],
-        "system": [
-            "STATUS: 月结流程 FINISHED, 总耗时 138min",
-            "REPORT: 生成月结报告 /REPORT/MONTHLY_CLOSE_202603.pdf",
-        ],
-    }
-
-    # 左右分栏：聊天 + SAP GUI
-    chat_col, sap_col = st.columns([3, 2])
-
-    with chat_col:
-        # 聊天历史显示
-        chat_container = st.container(height=480, border=True)
-        with chat_container:
-            if not st.session_state.chat_history:
-                st.markdown("""
-                <div style="text-align:center; padding: 60px 20px; color: #999;">
-                    <p style="font-size: 3rem; margin-bottom: 16px;">🤖</p>
-                    <p style="font-size: 1.1rem; margin-bottom: 8px;">你好！我是 ClosePilot，你的SAP智能月结助手。</p>
-                    <p>试试输入：<b>"帮我完成3月月结"</b></p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            for msg in st.session_state.chat_history:
-                if msg["role"] == "user":
-                    st.markdown(f'<div class="chat-bubble bubble-user">👤 {msg["content"]}</div>', unsafe_allow_html=True)
-                else:
-                    badge = format_agent_badge(msg["agent"])
-                    st.markdown(f'<div class="chat-bubble bubble-agent">{badge} {msg["content"]}</div>', unsafe_allow_html=True)
-
-            if st.session_state.chat_processing:
-                st.markdown('<div class="chat-bubble bubble-agent"><span class="agent-badge badge-planner">🧠 Planner Agent</span> 思考中...</div>', unsafe_allow_html=True)
-
-        # 输入区 + 清空按钮
-        input_col, clear_col = st.columns([5, 1])
-        with input_col:
-            user_input = st.chat_input("输入财务指令，如：帮我完成3月月结", disabled=st.session_state.chat_processing)
-        with clear_col:
-            if st.button("🗑️ 清空", use_container_width=True, disabled=st.session_state.chat_processing):
-                st.session_state.chat_history = []
-                st.session_state.chat_responses = []
-                st.session_state.chat_response_idx = 0
-                st.session_state.chat_processing = False
-                st.session_state.sap_log = []
-                st.rerun()
-
-        # 聊天处理逻辑
-        if user_input and not st.session_state.chat_processing:
-            st.session_state.chat_history.append({"role": "user", "content": user_input})
-            st.session_state.chat_responses = get_agent_response(user_input, use_ai=use_ai)
-            st.session_state.chat_response_idx = 0
-            st.session_state.chat_processing = True
-            st.rerun()
-
-        if st.session_state.chat_processing and st.session_state.chat_responses is not None:
-            idx = st.session_state.chat_response_idx
-            if idx < len(st.session_state.chat_responses):
-                agent_type, content = st.session_state.chat_responses[idx]
-                st.session_state.chat_history.append({
-                    "role": "agent",
-                    "agent": agent_type,
-                    "content": content
-                })
-                # 同步添加SAP操作日志
-                import random as _sap_rnd
-                sap_actions = SAP_ACTION_MAP.get(agent_type, SAP_ACTION_MAP["executor"])
-                sap_action = _sap_rnd.choice(sap_actions)
-                st.session_state.sap_log.append({
-                    "agent": agent_type,
-                    "action": sap_action,
-                    "time": time.strftime("%H:%M:%S")
-                })
-                st.session_state.chat_response_idx = idx + 1
-                time.sleep(0.6)
-                st.rerun()
-            else:
-                st.session_state.chat_processing = False
-                st.rerun()
-
-    # 右侧：SAP GUI 模拟界面
-    with sap_col:
-        st.markdown("#### 🖥️ SAP 操作终端")
-        st.caption("ClosePilot Agent 实时操作记录")
-
-        sap_container = st.container(height=480, border=True)
-        with sap_container:
-            if not st.session_state.sap_log:
-                st.markdown("""
-                <div style="text-align:center; padding: 40px 16px; color: #999; font-family: monospace;">
-                    <p style="font-size: 1.5rem; margin-bottom: 12px;">🖥️</p>
-                    <p>SAP GUI Terminal</p>
-                    <p style="font-size: 0.85rem;">等待 Agent 操作指令...</p>
-                    <p style="font-size: 0.8rem; color: #bbb;">SAP ERP 6.0 EHP8 | Client 100</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                for log_entry in st.session_state.sap_log:
-                    agent = log_entry["agent"]
-                    action = log_entry["action"]
-                    ts = log_entry["time"]
-                    agent_colors = {
-                        "planner": "#2E7D32",
-                        "executor": "#1565C0",
-                        "validator": "#E65100",
-                        "system": "#7B1FA2",
-                    }
-                    color = agent_colors.get(agent, "#666")
-                    st.markdown(f"""
-                    <div style="font-family: 'Courier New', monospace; font-size: 0.78rem; padding: 6px 10px; margin: 3px 0; background: #1a1a2e; border-radius: 4px; border-left: 3px solid {color};">
-                        <span style="color: #888;">[{ts}]</span>
-                        <span style="color: {color}; font-weight: 600;"> [{agent.upper()}]</span>
-                        <span style="color: #e0e0e0;"> {action}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # 自动滚动到底部的提示
-                st.markdown("<div style='text-align: right; font-size: 0.7rem; color: #999; margin-top: 8px;'>🔽 实时滚动中...</div>", unsafe_allow_html=True)
-
-    # ── 知识沉淀 + 智能联络面板（全宽显示）──
-    # 当聊天历史中包含差异/异常信息时，展示知识建议和联络选项
-    has_discrepancy = any(
-        "差异" in msg.get("content", "") or "异常" in msg.get("content", "") or "不匹配" in msg.get("content", "")
-        for msg in st.session_state.chat_history
-    )
-
-    if has_discrepancy and not st.session_state.chat_processing:
-        st.markdown("---")
-
-        # 知识沉淀建议
-        st.subheader("💡 智能建议（知识沉淀）")
-        st.caption("AI根据历史处理记录，自动匹配相似场景的解决方案")
-
-        for kb in KNOWLEDGE_BASE[:2]:  # 展示最相关的2条
-            confidence_color = "#4CAF50" if kb["confidence"] >= 90 else "#FF9800"
-            st.markdown(
-                f"<div style='background:#F1F8E9; border:1px solid #AED581; border-radius:8px; "
-                f"padding:12px 16px; margin:8px 0;'>"
-                f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;'>"
-                f"<span style='font-weight:700; color:#33691E;'>📚 {kb['scenario']}</span>"
-                f"<span style='background:{confidence_color}; color:white; padding:2px 8px; "
-                f"border-radius:10px; font-size:0.75rem;'>匹配度 {kb['confidence']}%</span>"
-                f"</div>"
-                f"<div style='font-size:0.88rem; color:#333; line-height:1.6;'>{kb['suggestion']}</div>"
-                f"<div style='font-size:0.8rem; color:#666; margin-top:6px; font-style:italic;'>"
-                f"📝 历史记录：{kb['history']}</div>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-
-        # 智能联络
-        st.markdown("---")
-        st.subheader("📧 智能联络（一键协调）")
-        st.caption("AI自动识别责任人并生成邮件草稿，可直接编辑后发送")
-
-        # 模拟第一个联络场景
-        contact_scenario = "银行流水差异"
-        contact = CONTACT_MAP[contact_scenario]
-
-        # 联系人信息
-        st.info(f"**📧 收件人**：{contact['person']}（{contact['department']}）\n"
-                f"**收件地址**：{contact['email']}")
-
-        # 可编辑的邮件主题和正文
-        default_subject = "【月结确认】工行流水差异 ¥2,340 需确认"
-        default_body = (
-            "王明你好，\n\n"
-            "3月月结中发现以下差异需要确认：\n"
-            "• 工行2月15日流水 #28471，金额差异 ¥2,340，SAP无对应凭证\n"
-            "• 根据历史记录，该差异通常为银行手续费未入账\n\n"
-            "请确认：\n"
-            "1. 该笔款项是否为银行手续费？\n"
-            "2. 如确认，我将直接计入“财务费用-手续费”科目\n\n"
-            "请在3月31日前回复，谢谢！\n\n"
-            "— ClosePilot 自动发送"
-        )
-
-        email_subject = st.text_input("邮件主题", value=default_subject, key="email_subject")
-        email_body = st.text_area("邮件正文", value=default_body, height=220, key="email_body")
-
-        st.caption("💡 可直接在上方编辑邮件内容，确认无误后点击发送")
-        send_clicked = st.button("📧 发送邮件", type="primary", use_container_width=True, key="send_contact")
-
-        if send_clicked:
-            st.session_state.contact_log.append({
-                "to": contact["email"],
-                "to_name": contact["person"],
-                "subject": email_subject,
-                "scenario": contact_scenario,
-                "time": time.strftime("%H:%M:%S"),
-                "status": "已发送"
-            })
-            st.success(f"✅ 邮件已发送至 {contact['person']} <{contact['email']}>")
-            st.rerun()
-
-        # 显示已发送记录
-        if st.session_state.contact_log:
-            st.markdown("---")
-            st.subheader("📨 联络记录")
-            for log in st.session_state.contact_log:
-                st.markdown(
-                    f"<div style='font-size:0.85rem; padding:8px 12px; margin:4px 0; "
-                    f"background:#F5F5F5; border-radius:6px;'>"
-                    f"<span style='color:#888;'>[{log['time']}]</span> "
-                    f"<span style='color:#1565C0; font-weight:600;'>→ {log.get('to_name', log['to'])}</span> "
-                    f"<span style='color:#333;'>{log.get('subject', log['scenario'])}</span> "
-                    f"<span style='color:#4CAF50; font-weight:600;'>{log['status']}</span>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-
-# ═══════════════════════════════════════
-# Tab 2: 月结流程看板
-# ═══════════════════════════════════════
-with dashboard_col:
-    st.subheader("📊 月结流程实时看板")
-    st.caption("模拟月结执行过程，观察子流程的实时状态")
-
-    # 配置查看器
-    with st.expander("📝 查看当前配置（YAML格式）", expanded=False):
-        config_yaml = f"""# {current_tpl['name']} 月结流程配置
-# 业务顾问维护此文件，定义月结流程的步骤、系统和风险等级
-# 系统根据 risk 自动判断是否需要人工确认，无需额外配置
-
-client: {current_tpl['name']}
-modules: {current_tpl['modules']}
-features: {current_tpl['features']}
-
-steps:"""
-        for s in current_steps:
-            comment = "  # 高风险，需人工确认" if s["risk"] == "高" else ""
-            config_yaml += f"""
-  - name: {s['name']}
-    system: {s['system']}
-    risk: {s['risk']}{comment}"""
-        st.code(config_yaml, language="yaml")
-        st.caption("💡 实际项目中，业务顾问修改此配置即可适配不同客户，无需改代码")
-
-    # 控制按钮
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 3])
-    is_running = st.session_state.demo_phase in ("running", "confirm")
-    with col_btn1:
-        start_demo = st.button(
-            "▶ 开始演示" if not is_running else "⏳ 执行中...",
-            type="primary",
+    template_col1, template_col2, template_col3 = st.columns(3)
+    with template_col1:
+        select_manufacturing = st.button(
+            "🏭 制造集团A（10步）",
             use_container_width=True,
-            disabled=is_running
+            type="primary" if st.session_state.client_template == "manufacturing" else "secondary",
+            key="tpl_mfg"
         )
-    with col_btn2:
-        reset_demo = st.button("🔄 重置", use_container_width=True, disabled=is_running)
+    with template_col2:
+        select_retail = st.button(
+            "🛒 零售集团B（12步）",
+            use_container_width=True,
+            type="primary" if st.session_state.client_template == "retail" else "secondary",
+            key="tpl_retail"
+        )
+    with template_col3:
+        select_service = st.button(
+            "💼 服务集团C（8步）",
+            use_container_width=True,
+            type="primary" if st.session_state.client_template == "service" else "secondary",
+            key="tpl_service"
+        )
 
-    if reset_demo:
+    if select_manufacturing:
+        st.session_state.client_template = "manufacturing"
         st.session_state.process_status = {}
         st.session_state.demo_step_idx = -1
         st.session_state.demo_phase = "idle"
         st.session_state.demo_sub = "start"
-        st.session_state.demo_reject_reason = ""
+        st.session_state.precheck_done = False
+        st.rerun()
+    if select_retail:
+        st.session_state.client_template = "retail"
+        st.session_state.process_status = {}
+        st.session_state.demo_step_idx = -1
+        st.session_state.demo_phase = "idle"
+        st.session_state.demo_sub = "start"
+        st.session_state.precheck_done = False
+        st.rerun()
+    if select_service:
+        st.session_state.client_template = "service"
+        st.session_state.process_status = {}
+        st.session_state.demo_step_idx = -1
+        st.session_state.demo_phase = "idle"
+        st.session_state.demo_sub = "start"
         st.session_state.precheck_done = False
         st.rerun()
 
-    # 演示推进逻辑：状态机，每次rerun推进一步
-    if start_demo and st.session_state.demo_phase == "idle":
-        st.session_state.demo_phase = "precheck"
-        st.session_state.demo_step_idx = 0
-        st.session_state.demo_sub = "start"
-        st.rerun()
+    current_tpl = CLIENT_TEMPLATES[st.session_state.client_template]
+    current_steps = current_tpl["data"]
+    st.info(
+        f"**{current_tpl['name']}** — {current_tpl['steps']}个子流程 | "
+        f"涉及模块：{current_tpl['modules']} | "
+        f"特色：{current_tpl['features']}"
+    )
 
-    # ── 前置完整性校验（月结预检）──
-    if st.session_state.demo_phase == "precheck":
-        st.markdown("---")
-        st.subheader("🔍 AI月结前置预检")
-        st.caption("在月结正式开始前，AI自动扫描上月所有凭证，做多维度分析，提前发现缺失和错误")
+    # ── 左右两栏：对话区 + 看板区 ──
+    chat_col, dashboard_col = st.columns([3, 2])
 
-        # 模拟预检过程
-        precheck_container = st.container(height=400, border=True)
-        with precheck_container:
-            if not st.session_state.precheck_done:
-                # 显示预检动画
-                st.info("🔄 AI正在扫描上月凭证数据...")
-                time.sleep(1.5)
-                
-                # 生成预检报告（模拟数据）
-                precheck_items = [
-                    {
-                        "dimension": "时间维度",
-                        "item": "应收账款科目环比+45%",
-                        "severity": "高",
-                        "detail": "华东区域3家客户回款延迟，主要集中在应收账款-华东科目",
-                        "suggestion": "建议检查华东区域客户回款记录，确认是否需要催收或调整坏账准备"
-                    },
-                    {
-                        "dimension": "结构维度",
-                        "item": "差旅费占总费用比例异常（15% vs 正常5%）",
-                        "severity": "中",
-                        "detail": "销售部门差旅费环比+200%，主要集中在3月最后一周",
-                        "suggestion": "建议核实销售部门差旅费报销凭证，确认是否有集中报销情况"
-                    },
-                    {
-                        "dimension": "完整性维度",
-                        "item": "MM模块库存调整未生成财务凭证",
-                        "severity": "高",
-                        "detail": "3月15日库存调整单#INV-20260315-003，金额¥234,000，FI模块无对应凭证",
-                        "suggestion": "建议检查MM模块凭证生成配置，或手动补录财务凭证"
-                    },
-                    {
-                        "dimension": "业务维度",
-                        "item": "某模块应产生凭证但未产生",
-                        "severity": "中",
-                        "detail": "CO模块成本中心#CC-0045分摊基数异常，可能导致分摊不准确",
-                        "suggestion": "建议核实成本中心#CC-0045的分摊基数设置"
-                    }
-                ]
-                
-                st.session_state.precheck_items = precheck_items
-                st.session_state.precheck_done = True
+    # ══════════════════════════════════════
+    # 左侧：对话区 + SAP终端
+    # ══════════════════════════════════════
+    with chat_col:
+        st.subheader("💬 与 ClosePilot 对话")
+        st.caption("输入财务指令，观察多Agent协同工作过程")
+
+        # SAP操作日志映射
+        SAP_ACTION_MAP = {
+            "planner": [
+                "CALL BAPI: BAPI_DOCUMENT_GETLIST( DOC_TYPE = 'FIAA' )",
+                "RFC: RFC_READ_TABLE( QUERY_TABLE = 'BKPF' )",
+                "ANALYZE: 识别月结任务依赖图...",
+            ],
+            "executor": [
+                "CALL BAPI: BAPI_ACC_DOCUMENT_POST( DOC_HEADER, DOC_ITEMS )",
+                "RFC: RFC_CALL_FUNCTION 'BAPI_AR_ACC_GETOPENITEMS'",
+                "EXECUTE: POSTING_RUN( COMPANY_CODE = '1000', FISCAL_PERIOD = '03' )",
+                "CALL BAPI: BAPI_GL_ACC_EXISTENCECHECK( GL_ACCOUNT = '11220000' )",
+                "DATA_SYNC: 银行流水接口 → 同步 2,847 条记录",
+                "CALL BAPI: BAPI_FIXEDASSET_OVRTAKE_CREATE()",
+            ],
+            "validator": [
+                "VALIDATE: CHECK_BALANCE( DEBIT = 12,450,000, CREDIT = 12,450,000 ) → PASS",
+                "AUDIT: 操作日志已写入 /LOG/CLOSEPILOT_AUDIT_202603",
+                "COMPLIANCE: 敏感数据加密传输 (TLS 1.3, AES-256)",
+            ],
+            "system": [
+                "STATUS: 月结流程 FINISHED, 总耗时 138min",
+                "REPORT: 生成月结报告 /REPORT/MONTHLY_CLOSE_202603.pdf",
+            ],
+        }
+
+        # 左右分栏：聊天 + SAP GUI
+        chat_col, sap_col = st.columns([3, 2])
+
+        with chat_col:
+            # 聊天历史显示
+            chat_container = st.container(height=480, border=True)
+            with chat_container:
+                if not st.session_state.chat_history:
+                    st.markdown("""
+                    <div style="text-align:center; padding: 60px 20px; color: #999;">
+                        <p style="font-size: 3rem; margin-bottom: 16px;">🤖</p>
+                        <p style="font-size: 1.1rem; margin-bottom: 8px;">你好！我是 ClosePilot，你的SAP智能月结助手。</p>
+                        <p>试试输入：<b>"帮我完成3月月结"</b></p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                for msg in st.session_state.chat_history:
+                    if msg["role"] == "user":
+                        st.markdown(f'<div class="chat-bubble bubble-user">👤 {msg["content"]}</div>', unsafe_allow_html=True)
+                    else:
+                        badge = format_agent_badge(msg["agent"])
+                        st.markdown(f'<div class="chat-bubble bubble-agent">{badge} {msg["content"]}</div>', unsafe_allow_html=True)
+
+                if st.session_state.chat_processing:
+                    st.markdown('<div class="chat-bubble bubble-agent"><span class="agent-badge badge-planner">🧠 Planner Agent</span> 思考中...</div>', unsafe_allow_html=True)
+
+            # 输入区 + 清空按钮
+            input_col, clear_col = st.columns([5, 1])
+            with input_col:
+                user_input = st.chat_input("输入财务指令，如：帮我完成3月月结", disabled=st.session_state.chat_processing)
+            with clear_col:
+                if st.button("🗑️ 清空", use_container_width=True, disabled=st.session_state.chat_processing):
+                    st.session_state.chat_history = []
+                    st.session_state.chat_responses = []
+                    st.session_state.chat_response_idx = 0
+                    st.session_state.chat_processing = False
+                    st.session_state.sap_log = []
+                    st.rerun()
+
+            # 聊天处理逻辑
+            if user_input and not st.session_state.chat_processing:
+                st.session_state.chat_history.append({"role": "user", "content": user_input})
+                st.session_state.chat_responses = get_agent_response(user_input, use_ai=use_ai)
+                st.session_state.chat_response_idx = 0
+                st.session_state.chat_processing = True
                 st.rerun()
-            else:
-                # 显示预检报告
-                st.success("✅ 预检完成，发现以下异常：")
-                
-                precheck_items = st.session_state.get("precheck_items", [])
-                for i, item in enumerate(precheck_items):
-                    severity_color = "#EF5350" if item["severity"] == "高" else "#FF9800" if item["severity"] == "中" else "#4CAF50"
-                    st.markdown(
-                        f"""
-                        <div style='background:#FAFAFA; border-left:4px solid {severity_color}; padding:12px 16px; margin:8px 0; border-radius:6px;'>
-                            <div style='display:flex; justify-content:space-between; align-items:center;'>
-                                <strong>【{item['dimension']}】{item['item']}</strong>
-                                <span style='background:{severity_color}; color:white; padding:2px 8px; border-radius:8px; font-size:0.75rem;'>严重程度：{item['severity']}</span>
-                            </div>
-                            <div style='color:#666; font-size:0.88rem; margin-top:8px;'>
-                                <strong>详情：</strong>{item['detail']}<br>
-                                <strong>建议：</strong>{item['suggestion']}
-                            </div>
+
+            if st.session_state.chat_processing and st.session_state.chat_responses is not None:
+                idx = st.session_state.chat_response_idx
+                if idx < len(st.session_state.chat_responses):
+                    agent_type, content = st.session_state.chat_responses[idx]
+                    st.session_state.chat_history.append({
+                        "role": "agent",
+                        "agent": agent_type,
+                        "content": content
+                    })
+                    # 同步添加SAP操作日志
+                    import random as _sap_rnd
+                    sap_actions = SAP_ACTION_MAP.get(agent_type, SAP_ACTION_MAP["executor"])
+                    sap_action = _sap_rnd.choice(sap_actions)
+                    st.session_state.sap_log.append({
+                        "agent": agent_type,
+                        "action": sap_action,
+                        "time": time.strftime("%H:%M:%S")
+                    })
+                    st.session_state.chat_response_idx = idx + 1
+                    time.sleep(0.6)
+                    st.rerun()
+                else:
+                    st.session_state.chat_processing = False
+                    st.rerun()
+
+        # 右侧：SAP GUI 模拟界面
+        with sap_col:
+            st.markdown("#### 🖥️ SAP 操作终端")
+            st.caption("ClosePilot Agent 实时操作记录")
+
+            sap_container = st.container(height=480, border=True)
+            with sap_container:
+                if not st.session_state.sap_log:
+                    st.markdown("""
+                    <div style="text-align:center; padding: 40px 16px; color: #999; font-family: monospace;">
+                        <p style="font-size: 1.5rem; margin-bottom: 12px;">🖥️</p>
+                        <p>SAP GUI Terminal</p>
+                        <p style="font-size: 0.85rem;">等待 Agent 操作指令...</p>
+                        <p style="font-size: 0.8rem; color: #bbb;">SAP ERP 6.0 EHP8 | Client 100</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    for log_entry in st.session_state.sap_log:
+                        agent = log_entry["agent"]
+                        action = log_entry["action"]
+                        ts = log_entry["time"]
+                        agent_colors = {
+                            "planner": "#2E7D32",
+                            "executor": "#1565C0",
+                            "validator": "#E65100",
+                            "system": "#7B1FA2",
+                        }
+                        color = agent_colors.get(agent, "#666")
+                        st.markdown(f"""
+                        <div style="font-family: 'Courier New', monospace; font-size: 0.78rem; padding: 6px 10px; margin: 3px 0; background: #1a1a2e; border-radius: 4px; border-left: 3px solid {color};">
+                            <span style="color: #888;">[{ts}]</span>
+                            <span style="color: {color}; font-weight: 600;"> [{agent.upper()}]</span>
+                            <span style="color: #e0e0e0;"> {action}</span>
                         </div>
-                        """,
+                        """, unsafe_allow_html=True)
+
+                    # 自动滚动到底部的提示
+                    st.markdown("<div style='text-align: right; font-size: 0.7rem; color: #999; margin-top: 8px;'>🔽 实时滚动中...</div>", unsafe_allow_html=True)
+
+        # ── 知识沉淀 + 智能联络面板（全宽显示）──
+        # 当聊天历史中包含差异/异常信息时，展示知识建议和联络选项
+        has_discrepancy = any(
+            "差异" in msg.get("content", "") or "异常" in msg.get("content", "") or "不匹配" in msg.get("content", "")
+            for msg in st.session_state.chat_history
+        )
+
+        if has_discrepancy and not st.session_state.chat_processing:
+            st.markdown("---")
+
+            # 知识沉淀建议
+            st.subheader("💡 智能建议（知识沉淀）")
+            st.caption("AI根据历史处理记录，自动匹配相似场景的解决方案")
+
+            for kb in KNOWLEDGE_BASE[:2]:  # 展示最相关的2条
+                confidence_color = "#4CAF50" if kb["confidence"] >= 90 else "#FF9800"
+                st.markdown(
+                    f"<div style='background:#F1F8E9; border:1px solid #AED581; border-radius:8px; "
+                    f"padding:12px 16px; margin:8px 0;'>"
+                    f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;'>"
+                    f"<span style='font-weight:700; color:#33691E;'>📚 {kb['scenario']}</span>"
+                    f"<span style='background:{confidence_color}; color:white; padding:2px 8px; "
+                    f"border-radius:10px; font-size:0.75rem;'>匹配度 {kb['confidence']}%</span>"
+                    f"</div>"
+                    f"<div style='font-size:0.88rem; color:#333; line-height:1.6;'>{kb['suggestion']}</div>"
+                    f"<div style='font-size:0.8rem; color:#666; margin-top:6px; font-style:italic;'>"
+                    f"📝 历史记录：{kb['history']}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+            # 智能联络
+            st.markdown("---")
+            st.subheader("📧 智能联络（一键协调）")
+            st.caption("AI自动识别责任人并生成邮件草稿，可直接编辑后发送")
+
+            # 模拟第一个联络场景
+            contact_scenario = "银行流水差异"
+            contact = CONTACT_MAP[contact_scenario]
+
+            # 联系人信息
+            st.info(f"**📧 收件人**：{contact['person']}（{contact['department']}）\n"
+                    f"**收件地址**：{contact['email']}")
+
+            # 可编辑的邮件主题和正文
+            default_subject = "【月结确认】工行流水差异 ¥2,340 需确认"
+            default_body = (
+                "王明你好，\n\n"
+                "3月月结中发现以下差异需要确认：\n"
+                "• 工行2月15日流水 #28471，金额差异 ¥2,340，SAP无对应凭证\n"
+                "• 根据历史记录，该差异通常为银行手续费未入账\n\n"
+                "请确认：\n"
+                "1. 该笔款项是否为银行手续费？\n"
+                "2. 如确认，我将直接计入“财务费用-手续费”科目\n\n"
+                "请在3月31日前回复，谢谢！\n\n"
+                "— ClosePilot 自动发送"
+            )
+
+            email_subject = st.text_input("邮件主题", value=default_subject, key="email_subject")
+            email_body = st.text_area("邮件正文", value=default_body, height=220, key="email_body")
+
+            st.caption("💡 可直接在上方编辑邮件内容，确认无误后点击发送")
+            send_clicked = st.button("📧 发送邮件", type="primary", use_container_width=True, key="send_contact")
+
+            if send_clicked:
+                st.session_state.contact_log.append({
+                    "to": contact["email"],
+                    "to_name": contact["person"],
+                    "subject": email_subject,
+                    "scenario": contact_scenario,
+                    "time": time.strftime("%H:%M:%S"),
+                    "status": "已发送"
+                })
+                st.success(f"✅ 邮件已发送至 {contact['person']} <{contact['email']}>")
+                st.rerun()
+
+            # 显示已发送记录
+            if st.session_state.contact_log:
+                st.markdown("---")
+                st.subheader("📨 联络记录")
+                for log in st.session_state.contact_log:
+                    st.markdown(
+                        f"<div style='font-size:0.85rem; padding:8px 12px; margin:4px 0; "
+                        f"background:#F5F5F5; border-radius:6px;'>"
+                        f"<span style='color:#888;'>[{log['time']}]</span> "
+                        f"<span style='color:#1565C0; font-weight:600;'>→ {log.get('to_name', log['to'])}</span> "
+                        f"<span style='color:#333;'>{log.get('subject', log['scenario'])}</span> "
+                        f"<span style='color:#4CAF50; font-weight:600;'>{log['status']}</span>"
+                        f"</div>",
                         unsafe_allow_html=True
                     )
 
-        # 预检完成按钮
-        if st.session_state.precheck_done:
-            if st.button("✅ 预检完成，开始正式月结流程", type="primary", use_container_width=True):
+    # ═══════════════════════════════════════
+    # Tab 2: 月结流程看板
+    # ═══════════════════════════════════════
+    with dashboard_col:
+        st.subheader("📊 月结流程实时看板")
+        st.caption("模拟月结执行过程，观察子流程的实时状态")
+
+        # 配置查看器
+        with st.expander("📝 查看当前配置（YAML格式）", expanded=False):
+            config_yaml = f"""# {current_tpl['name']} 月结流程配置
+    # 业务顾问维护此文件，定义月结流程的步骤、系统和风险等级
+    # 系统根据 risk 自动判断是否需要人工确认，无需额外配置
+
+    client: {current_tpl['name']}
+    modules: {current_tpl['modules']}
+    features: {current_tpl['features']}
+
+    steps:"""
+            for s in current_steps:
+                comment = "  # 高风险，需人工确认" if s["risk"] == "高" else ""
+                config_yaml += f"""
+      - name: {s['name']}
+        system: {s['system']}
+        risk: {s['risk']}{comment}"""
+            st.code(config_yaml, language="yaml")
+            st.caption("💡 实际项目中，业务顾问修改此配置即可适配不同客户，无需改代码")
+
+        # 控制按钮
+        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 3])
+        is_running = st.session_state.demo_phase in ("running", "confirm")
+        with col_btn1:
+            start_demo = st.button(
+                "▶ 开始演示" if not is_running else "⏳ 执行中...",
+                type="primary",
+                use_container_width=True,
+                disabled=is_running
+            )
+        with col_btn2:
+            reset_demo = st.button("🔄 重置", use_container_width=True, disabled=is_running)
+
+        if reset_demo:
+            st.session_state.process_status = {}
+            st.session_state.demo_step_idx = -1
+            st.session_state.demo_phase = "idle"
+            st.session_state.demo_sub = "start"
+            st.session_state.demo_reject_reason = ""
+            st.session_state.precheck_done = False
+            st.rerun()
+
+        # 演示推进逻辑：状态机，每次rerun推进一步
+        if start_demo and st.session_state.demo_phase == "idle":
+            st.session_state.demo_phase = "precheck"
+            st.session_state.demo_step_idx = 0
+            st.session_state.demo_sub = "start"
+            st.rerun()
+
+        # ── 前置完整性校验（月结预检）──
+        if st.session_state.demo_phase == "precheck":
+            st.markdown("---")
+            st.subheader("🔍 AI月结前置预检")
+            st.caption("在月结正式开始前，AI自动扫描上月所有凭证，做多维度分析，提前发现缺失和错误")
+
+            # 模拟预检过程
+            precheck_container = st.container(height=400, border=True)
+            with precheck_container:
+                if not st.session_state.precheck_done:
+                    # 显示预检动画
+                    st.info("🔄 AI正在扫描上月凭证数据...")
+                    time.sleep(1.5)
+                
+                    # 生成预检报告（模拟数据）
+                    precheck_items = [
+                        {
+                            "dimension": "时间维度",
+                            "item": "应收账款科目环比+45%",
+                            "severity": "高",
+                            "detail": "华东区域3家客户回款延迟，主要集中在应收账款-华东科目",
+                            "suggestion": "建议检查华东区域客户回款记录，确认是否需要催收或调整坏账准备"
+                        },
+                        {
+                            "dimension": "结构维度",
+                            "item": "差旅费占总费用比例异常（15% vs 正常5%）",
+                            "severity": "中",
+                            "detail": "销售部门差旅费环比+200%，主要集中在3月最后一周",
+                            "suggestion": "建议核实销售部门差旅费报销凭证，确认是否有集中报销情况"
+                        },
+                        {
+                            "dimension": "完整性维度",
+                            "item": "MM模块库存调整未生成财务凭证",
+                            "severity": "高",
+                            "detail": "3月15日库存调整单#INV-20260315-003，金额¥234,000，FI模块无对应凭证",
+                            "suggestion": "建议检查MM模块凭证生成配置，或手动补录财务凭证"
+                        },
+                        {
+                            "dimension": "业务维度",
+                            "item": "某模块应产生凭证但未产生",
+                            "severity": "中",
+                            "detail": "CO模块成本中心#CC-0045分摊基数异常，可能导致分摊不准确",
+                            "suggestion": "建议核实成本中心#CC-0045的分摊基数设置"
+                        }
+                    ]
+                
+                    st.session_state.precheck_items = precheck_items
+                    st.session_state.precheck_done = True
+                    st.rerun()
+                else:
+                    # 显示预检报告
+                    st.success("✅ 预检完成，发现以下异常：")
+                
+                    precheck_items = st.session_state.get("precheck_items", [])
+                    for i, item in enumerate(precheck_items):
+                        severity_color = "#EF5350" if item["severity"] == "高" else "#FF9800" if item["severity"] == "中" else "#4CAF50"
+                        st.markdown(
+                            f"""
+                            <div style='background:#FAFAFA; border-left:4px solid {severity_color}; padding:12px 16px; margin:8px 0; border-radius:6px;'>
+                                <div style='display:flex; justify-content:space-between; align-items:center;'>
+                                    <strong>【{item['dimension']}】{item['item']}</strong>
+                                    <span style='background:{severity_color}; color:white; padding:2px 8px; border-radius:8px; font-size:0.75rem;'>严重程度：{item['severity']}</span>
+                                </div>
+                                <div style='color:#666; font-size:0.88rem; margin-top:8px;'>
+                                    <strong>详情：</strong>{item['detail']}<br>
+                                    <strong>建议：</strong>{item['suggestion']}
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+            # 预检完成按钮
+            if st.session_state.precheck_done:
+                if st.button("✅ 预检完成，开始正式月结流程", type="primary", use_container_width=True):
+                    st.session_state.demo_phase = "running"
+                    st.session_state.demo_sub = "start"
+                    st.rerun()
+
+        # 流程步骤展示（只在非precheck状态显示）
+        total_steps = len(current_steps)
+        completed = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done")
+    
+        if st.session_state.demo_phase != "precheck":
+            progress = completed / total_steps
+
+            st.progress(progress, text=f"执行进度：{completed}/{total_steps} 子流程")
+
+            st.markdown("---")
+
+            # 步骤卡片
+            for step in current_steps:
+                status = st.session_state.process_status.get(step["id"], "pending")
+
+                if status == "done":
+                    icon, status_text, status_cls = "✅", "已完成", "status-done"
+                elif status == "rejected":
+                    icon, status_text, status_cls = "❌", "已驳回", "status-error"
+                elif status == "running":
+                    icon, status_text, status_cls = "⏳", "执行中...", "status-running"
+                elif status == "confirm":
+                    icon, status_text, status_cls = "⚠️", "需人工确认", "status-error"
+                else:
+                    icon, status_text, status_cls = "⬜", "等待中", "status-pending"
+
+                risk_color = {"低": "#4CAF50", "中": "#FF9800", "高": "#F44336"}.get(step["risk"], "#999")
+                border_color = '#2E7D32' if status == 'done' else '#C62828' if status == 'rejected' else '#FFA000' if status in ('running', 'confirm') else '#E0E0E0'
+
+                st.markdown(f"""
+                <div class="step-card" style="border-left: 4px solid {border_color}; {'opacity: 0.5;' if status == 'pending' else ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>{icon} Step {step["id"]}: {step["name"]}</strong>
+                            <span style="color: #888; margin-left: 12px;"> {step["system"]}</span>
+                            <span style="color: #888; margin-left: 12px;">⏱ {step["duration"]}min</span>
+                        </div>
+                        <div>
+                            <span style="background: {risk_color}; color: white; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem;">风险: {step["risk"]}</span>
+                            <span class="{status_cls}" style="margin-left: 10px;">{status_text}</span>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        if st.session_state.demo_phase == "running":
+            idx = st.session_state.demo_step_idx
+            sub = st.session_state.demo_sub
+
+            if idx >= total_steps:
+                st.session_state.demo_phase = "done"
+                st.rerun()
+
+            step = current_steps[idx]
+
+            if sub == "start":
+                # 标记当前步骤为执行中
+                st.session_state.process_status[step["id"]] = "running"
+                st.session_state.demo_sub = "wait"
+                st.rerun()
+
+            elif sub == "wait":
+                # 等待后更新状态
+                if step["risk"] == "高":
+                    time.sleep(1.2)
+                    st.session_state.process_status[step["id"]] = "confirm"
+                    st.session_state.demo_phase = "confirm"
+                    st.session_state.demo_sub = "start"
+                else:
+                    time.sleep(0.8)
+                    st.session_state.process_status[step["id"]] = "done"
+                    st.session_state.demo_step_idx = idx + 1
+                    st.session_state.demo_sub = "start"
+                st.rerun()
+
+        if st.session_state.demo_phase == "confirm":
+            idx = st.session_state.demo_step_idx
+            step = current_steps[idx]
+            detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
+
+            # 显示Human-in-the-Loop确认对话框
+            st.markdown("---")
+            st.warning(
+                f" **Human-in-the-Loop** — Step {step['id']}「{step['name']}」为高风险操作，"
+                f"Agent已暂停执行，等待财务人员确认。"
+            )
+
+            # 确认详情面板
+            st.markdown(
+                f"<div style='background:#FFF8E1; border:1px solid #FFB300; border-radius:8px; padding:14px 18px; margin:8px 0;'>"
+                f"<div style='font-weight:700; color:#E65100; margin-bottom:8px;'> Agent 拟执行操作：</div>"
+                f"<pre style='background:white; padding:10px; border-radius:6px; font-size:0.85rem; white-space:pre-wrap; margin:0;'>{detail}</pre>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+            confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 2])
+            with confirm_col1:
+                confirm_clicked = st.button(
+                    "✅ 确认执行",
+                    type="primary",
+                    use_container_width=True,
+                    key="confirm_approve"
+                )
+            with confirm_col2:
+                reject_clicked = st.button(
+                    "❌ 驳回修改",
+                    use_container_width=True,
+                    key="confirm_reject"
+                )
+            with confirm_col3:
+                st.caption("这是ClosePilot的安全机制：AI自主决策 + 人工把关高风险节点")
+
+            if confirm_clicked:
+                st.session_state.process_status[step["id"]] = "done"
                 st.session_state.demo_phase = "running"
+                st.session_state.demo_step_idx = idx + 1
                 st.session_state.demo_sub = "start"
                 st.rerun()
 
-    # 流程步骤展示（只在非precheck状态显示）
-    total_steps = len(current_steps)
-    completed = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done")
-    
-    if st.session_state.demo_phase != "precheck":
-        progress = completed / total_steps
+            if reject_clicked:
+                st.session_state.demo_phase = "revise"
+                st.rerun()
 
-        st.progress(progress, text=f"执行进度：{completed}/{total_steps} 子流程")
+        # ─ 驳回修改阶段：输入修改意见 ──
+        if st.session_state.demo_phase == "revise":
+            idx = st.session_state.demo_step_idx
+            step = current_steps[idx]
 
-        st.markdown("---")
+            st.markdown("---")
+            st.error(f" **Step {step['id']}「{step['name']}」已被驳回**，请说明修改要求，Agent将调整方案后重新提交确认。")
 
-        # 步骤卡片
-        for step in current_steps:
-            status = st.session_state.process_status.get(step["id"], "pending")
+            reject_reason = st.text_area(
+                "驳回原因 / 修改要求",
+                value=st.session_state.demo_reject_reason,
+                placeholder="例如：金额有误，请重新核对；或：暂不执行，待下月处理",
+                height=80,
+                key="reject_reason_input"
+            )
 
-            if status == "done":
-                icon, status_text, status_cls = "✅", "已完成", "status-done"
-            elif status == "rejected":
-                icon, status_text, status_cls = "❌", "已驳回", "status-error"
-            elif status == "running":
-                icon, status_text, status_cls = "⏳", "执行中...", "status-running"
-            elif status == "confirm":
-                icon, status_text, status_cls = "⚠️", "需人工确认", "status-error"
-            else:
-                icon, status_text, status_cls = "⬜", "等待中", "status-pending"
+            submit_col1, submit_col2 = st.columns([1, 3])
+            with submit_col1:
+                submit_clicked = st.button(
+                    "📤 提交修改意见",
+                    type="primary",
+                    use_container_width=True,
+                    key="submit_reject"
+                )
+            with submit_col2:
+                st.caption("Agent将根据您的意见调整方案，再次提交确认")
 
-            risk_color = {"低": "#4CAF50", "中": "#FF9800", "高": "#F44336"}.get(step["risk"], "#999")
-            border_color = '#2E7D32' if status == 'done' else '#C62828' if status == 'rejected' else '#FFA000' if status in ('running', 'confirm') else '#E0E0E0'
+            if submit_clicked and reject_reason.strip():
+                st.session_state.demo_reject_reason = reject_reason.strip()
+                st.session_state.demo_phase = "reconfirm"
+                st.rerun()
 
-            st.markdown(f"""
-            <div class="step-card" style="border-left: 4px solid {border_color}; {'opacity: 0.5;' if status == 'pending' else ''}">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>{icon} Step {step["id"]}: {step["name"]}</strong>
-                        <span style="color: #888; margin-left: 12px;"> {step["system"]}</span>
-                        <span style="color: #888; margin-left: 12px;">⏱ {step["duration"]}min</span>
-                    </div>
-                    <div>
-                        <span style="background: {risk_color}; color: white; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem;">风险: {step["risk"]}</span>
-                        <span class="{status_cls}" style="margin-left: 10px;">{status_text}</span>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        # ── 重新确认阶段：Agent调整后的方案 ──
+        if st.session_state.demo_phase == "reconfirm":
+            idx = st.session_state.demo_step_idx
+            step = current_steps[idx]
+            detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
+            reason = st.session_state.demo_reject_reason
 
-    if st.session_state.demo_phase == "running":
-        idx = st.session_state.demo_step_idx
-        sub = st.session_state.demo_sub
+            st.markdown("---")
+            st.info(f" **Agent 已根据您的意见调整方案** — Step {step['id']}「{step['name']}」")
 
-        if idx >= total_steps:
-            st.session_state.demo_phase = "done"
-            st.rerun()
+            # 显示驳回意见
+            st.markdown(
+                f"<div style='background:#FFEBEE; border:1px solid #EF5350; border-radius:8px; padding:10px 14px; margin:6px 0;'>"
+                f"<div style='font-weight:600; color:#C62828; font-size:0.85rem;'> 您的修改意见：</div>"
+                f"<div style='font-size:0.85rem; color:#333; margin-top:4px;'>{reason}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
-        step = current_steps[idx]
+            # 显示调整后的方案
+            st.markdown(
+                f"<div style='background:#E8F5E9; border:1px solid #66BB6A; border-radius:8px; padding:14px 18px; margin:8px 0;'>"
+                f"<div style='font-weight:700; color:#2E7D32; margin-bottom:8px;'> Agent 调整后的方案：</div>"
+                f"<pre style='background:white; padding:10px; border-radius:6px; font-size:0.85rem; white-space:pre-wrap; margin:0;'>{detail}\n\n[已根据您的意见调整]</pre>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
-        if sub == "start":
-            # 标记当前步骤为执行中
-            st.session_state.process_status[step["id"]] = "running"
-            st.session_state.demo_sub = "wait"
-            st.rerun()
+            reconfirm_col1, reconfirm_col2 = st.columns([1, 3])
+            with reconfirm_col1:
+                reconfirm_clicked = st.button(
+                    "✅ 确认执行",
+                    type="primary",
+                    use_container_width=True,
+                    key="reconfirm_approve"
+                )
+            with reconfirm_col2:
+                st.caption("此次为最终确认，Agent将按调整后的方案执行")
 
-        elif sub == "wait":
-            # 等待后更新状态
-            if step["risk"] == "高":
-                time.sleep(1.2)
-                st.session_state.process_status[step["id"]] = "confirm"
-                st.session_state.demo_phase = "confirm"
-                st.session_state.demo_sub = "start"
-            else:
-                time.sleep(0.8)
+            if reconfirm_clicked:
                 st.session_state.process_status[step["id"]] = "done"
+                st.session_state.demo_phase = "running"
                 st.session_state.demo_step_idx = idx + 1
                 st.session_state.demo_sub = "start"
-            st.rerun()
+                st.session_state.demo_reject_reason = ""
+                st.rerun()
 
-    if st.session_state.demo_phase == "confirm":
-        idx = st.session_state.demo_step_idx
-        step = current_steps[idx]
-        detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
+    # 动态统计信息
+    st.markdown("---")
+    st.subheader("📈 执行统计")
 
-        # 显示Human-in-the-Loop确认对话框
-        st.markdown("---")
-        st.warning(
-            f" **Human-in-the-Loop** — Step {step['id']}「{step['name']}」为高风险操作，"
-            f"Agent已暂停执行，等待财务人员确认。"
-        )
+    running_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "running")
+    confirm_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "confirm")
+    auto_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] != "高")
+    manual_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] == "高")
 
-        # 确认详情面板
-        st.markdown(
-            f"<div style='background:#FFF8E1; border:1px solid #FFB300; border-radius:8px; padding:14px 18px; margin:8px 0;'>"
-            f"<div style='font-weight:700; color:#E65100; margin-bottom:8px;'> Agent 拟执行操作：</div>"
-            f"<pre style='background:white; padding:10px; border-radius:6px; font-size:0.85rem; white-space:pre-wrap; margin:0;'>{detail}</pre>"
-            f"</div>",
-            unsafe_allow_html=True
-        )
+    stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+    with stat_col1:
+        elapsed = sum(s["duration"] for s in current_steps[:max(0, st.session_state.demo_step_idx + 1)] if st.session_state.process_status.get(s["id"]) in ("done", "confirm"))
+        st.metric("已用时间", f"{elapsed} 分钟", "传统方式需数天")
+    with stat_col2:
+        st.metric("已完成", f"{completed}/{total_steps}", f"自动化 {auto_done} + 人工确认 {manual_done}")
+    with stat_col3:
+        if completed > 0:
+            auto_rate = f"{round(auto_done / max(completed, 1) * 100)}%"
+        else:
+            auto_rate = "—"
+        st.metric("自动化率", auto_rate, "高风险节点需人工确认")
+    with stat_col4:
+        if running_count > 0:
+            st.metric("当前状态", "执行中", f"{running_count} 个流程运行中")
+        elif st.session_state.demo_phase == "done":
+            st.metric("当前状态", "全部完成", "🎉")
+        else:
+            st.metric("当前状态", "待启动", "点击开始演示")
 
-        confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 2])
-        with confirm_col1:
-            confirm_clicked = st.button(
-                "✅ 确认执行",
-                type="primary",
-                use_container_width=True,
-                key="confirm_approve"
-            )
-        with confirm_col2:
-            reject_clicked = st.button(
-                "❌ 驳回修改",
-                use_container_width=True,
-                key="confirm_reject"
-            )
-        with confirm_col3:
-            st.caption("这是ClosePilot的安全机制：AI自主决策 + 人工把关高风险节点")
+    # ── 异常热力图 ──
+    st.markdown("---")
+    st.subheader("月结异常热力图（历史数据）")
+    st.caption("过去12个月月结执行统计，异常率 = 异常次数 / 执行总次数 × 100%")
 
-        if confirm_clicked:
-            st.session_state.process_status[step["id"]] = "done"
-            st.session_state.demo_phase = "running"
-            st.session_state.demo_step_idx = idx + 1
-            st.session_state.demo_sub = "start"
-            st.rerun()
-
-        if reject_clicked:
-            st.session_state.demo_phase = "revise"
-            st.rerun()
-
-    # ─ 驳回修改阶段：输入修改意见 ──
-    if st.session_state.demo_phase == "revise":
-        idx = st.session_state.demo_step_idx
-        step = current_steps[idx]
-
-        st.markdown("---")
-        st.error(f" **Step {step['id']}「{step['name']}」已被驳回**，请说明修改要求，Agent将调整方案后重新提交确认。")
-
-        reject_reason = st.text_area(
-            "驳回原因 / 修改要求",
-            value=st.session_state.demo_reject_reason,
-            placeholder="例如：金额有误，请重新核对；或：暂不执行，待下月处理",
-            height=80,
-            key="reject_reason_input"
-        )
-
-        submit_col1, submit_col2 = st.columns([1, 3])
-        with submit_col1:
-            submit_clicked = st.button(
-                "📤 提交修改意见",
-                type="primary",
-                use_container_width=True,
-                key="submit_reject"
-            )
-        with submit_col2:
-            st.caption("Agent将根据您的意见调整方案，再次提交确认")
-
-        if submit_clicked and reject_reason.strip():
-            st.session_state.demo_reject_reason = reject_reason.strip()
-            st.session_state.demo_phase = "reconfirm"
-            st.rerun()
-
-    # ── 重新确认阶段：Agent调整后的方案 ──
-    if st.session_state.demo_phase == "reconfirm":
-        idx = st.session_state.demo_step_idx
-        step = current_steps[idx]
-        detail = step.get("confirm_detail", "高风险操作，请确认后执行。")
-        reason = st.session_state.demo_reject_reason
-
-        st.markdown("---")
-        st.info(f" **Agent 已根据您的意见调整方案** — Step {step['id']}「{step['name']}」")
-
-        # 显示驳回意见
-        st.markdown(
-            f"<div style='background:#FFEBEE; border:1px solid #EF5350; border-radius:8px; padding:10px 14px; margin:6px 0;'>"
-            f"<div style='font-weight:600; color:#C62828; font-size:0.85rem;'> 您的修改意见：</div>"
-            f"<div style='font-size:0.85rem; color:#333; margin-top:4px;'>{reason}</div>"
-            f"</div>",
-            unsafe_allow_html=True
-        )
-
-        # 显示调整后的方案
-        st.markdown(
-            f"<div style='background:#E8F5E9; border:1px solid #66BB6A; border-radius:8px; padding:14px 18px; margin:8px 0;'>"
-            f"<div style='font-weight:700; color:#2E7D32; margin-bottom:8px;'> Agent 调整后的方案：</div>"
-            f"<pre style='background:white; padding:10px; border-radius:6px; font-size:0.85rem; white-space:pre-wrap; margin:0;'>{detail}\n\n[已根据您的意见调整]</pre>"
-            f"</div>",
-            unsafe_allow_html=True
-        )
-
-        reconfirm_col1, reconfirm_col2 = st.columns([1, 3])
-        with reconfirm_col1:
-            reconfirm_clicked = st.button(
-                "✅ 确认执行",
-                type="primary",
-                use_container_width=True,
-                key="reconfirm_approve"
-            )
-        with reconfirm_col2:
-            st.caption("此次为最终确认，Agent将按调整后的方案执行")
-
-        if reconfirm_clicked:
-            st.session_state.process_status[step["id"]] = "done"
-            st.session_state.demo_phase = "running"
-            st.session_state.demo_step_idx = idx + 1
-            st.session_state.demo_sub = "start"
-            st.session_state.demo_reject_reason = ""
-            st.rerun()
-
-# 动态统计信息
-st.markdown("---")
-st.subheader("📈 执行统计")
-
-running_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "running")
-confirm_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "confirm")
-auto_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] != "高")
-manual_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] == "高")
-
-stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-with stat_col1:
-    elapsed = sum(s["duration"] for s in current_steps[:max(0, st.session_state.demo_step_idx + 1)] if st.session_state.process_status.get(s["id"]) in ("done", "confirm"))
-    st.metric("已用时间", f"{elapsed} 分钟", "传统方式需数天")
-with stat_col2:
-    st.metric("已完成", f"{completed}/{total_steps}", f"自动化 {auto_done} + 人工确认 {manual_done}")
-with stat_col3:
-    if completed > 0:
-        auto_rate = f"{round(auto_done / max(completed, 1) * 100)}%"
-    else:
-        auto_rate = "—"
-    st.metric("自动化率", auto_rate, "高风险节点需人工确认")
-with stat_col4:
-    if running_count > 0:
-        st.metric("当前状态", "执行中", f"{running_count} 个流程运行中")
-    elif st.session_state.demo_phase == "done":
-        st.metric("当前状态", "全部完成", "🎉")
-    else:
-        st.metric("当前状态", "待启动", "点击开始演示")
-
-# ── 异常热力图 ──
-st.markdown("---")
-st.subheader("月结异常热力图（历史数据）")
-st.caption("过去12个月月结执行统计，异常率 = 异常次数 / 执行总次数 × 100%")
-
-# 异常数据（从当前企业的历史记录计算）
-_history = ANOMALY_HISTORY.get(st.session_state.client_template, {})
-anomaly_data = {
-    "步骤": [s["name"] for s in current_steps],
-    "异常次数": [f"{_history.get(s['name'], {}).get('anomalies', 0)}/{_history.get(s['name'], {}).get('total', 12)}" for s in current_steps],
-    "异常率(%)": [round(_history.get(s['name'], {}).get('anomalies', 0) / _history.get(s['name'], {}).get('total', 12) * 100) for s in current_steps],
-    "平均处理时间(min)": [_history.get(s['name'], {}).get('avg_time', 10) for s in current_steps],
-    "常见问题": [_history.get(s['name'], {}).get('issue', '—') for s in current_steps],
-}
-anomaly_df = pd.DataFrame(anomaly_data)
-
-# 用Plotly画热力图风格的条形图
-fig_anomaly = go.Figure(go.Bar(
-    x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
-    marker_color=[
-        '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
-        for v in anomaly_data["异常率(%)"]
-    ],
-    text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
-    textposition='outside',
-))
-fig_anomaly.update_layout(
-    height=300,
-    xaxis_title="月结步骤",
-    yaxis_title="异常率 (%)",
-    margin=dict(l=60, r=20, t=20, b=80),
-    font=dict(size=11),
-)
-st.plotly_chart(fig_anomaly, use_container_width=True)
-
-# 异常详情表
-st.markdown("**异常详情：**")
-anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
-anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
-st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
-
-# ── 业务变化分析报告（凭证→业务变化归纳 + 风险分析）──
-st.markdown("---")
-st.subheader("📊 AI业务变化分析报告")
-st.caption("AI自动归纳本月海量凭证，生成业务变化Checklist，并提示税务和资金风险")
-
-# 模拟业务变化分析数据
-business_changes = [
-    {
-        "category": "供应商变化",
-        "items": [
-            "本月新增供应商3家（华东区域2家、华南区域1家）",
-            "供应商#SUP-0045本月交易额环比+120%，需核实是否有集中采购",
-            "供应商#SUP-0123账期从60天延长至90天，影响资金流"
-        ]
-    },
-    {
-        "category": "收入成本变动",
-        "items": [
-            "主营业务收入环比+15%，主要集中在华东区域",
-            "成本率从62%上升至68%，毛利率下降6个百分点",
-            "订单#SO-20260315收入已确认但成本未归集，金额¥284,500"
-        ]
-    },
-    {
-        "category": "费用波动",
-        "items": [
-            "差旅费环比+200%，集中在销售部门3月最后一周",
-            "办公费环比-30%，可能是季节性波动",
-            "咨询费单笔金额¥450,000，需核实是否有合同支撑"
-        ]
-    },
-    {
-        "category": "资产负债科目变动",
-        "items": [
-            "应收账款科目环比+45%，华东区域3家客户回款延迟",
-            "存货科目环比-12%，可能是库存周转加快或跌价准备计提",
-            "预付账款科目环比+80%，需核实是否有预付款项未及时核销"
-        ]
+    # 异常数据（从当前企业的历史记录计算）
+    _history = ANOMALY_HISTORY.get(st.session_state.client_template, {})
+    anomaly_data = {
+        "步骤": [s["name"] for s in current_steps],
+        "异常次数": [f"{_history.get(s['name'], {}).get('anomalies', 0)}/{_history.get(s['name'], {}).get('total', 12)}" for s in current_steps],
+        "异常率(%)": [round(_history.get(s['name'], {}).get('anomalies', 0) / _history.get(s['name'], {}).get('total', 12) * 100) for s in current_steps],
+        "平均处理时间(min)": [_history.get(s['name'], {}).get('avg_time', 10) for s in current_steps],
+        "常见问题": [_history.get(s['name'], {}).get('issue', '—') for s in current_steps],
     }
-]
+    anomaly_df = pd.DataFrame(anomaly_data)
 
-# 显示业务变化Checklist
-change_col1, change_col2 = st.columns([2, 1])
-with change_col1:
-    st.markdown("**📋 业务变化Checklist**")
-    for change in business_changes:
-        with st.expander(f"🔹 {change['category']}", expanded=True):
-            for item in change["items"]:
-                st.markdown(f"- {item}")
-
-with change_col2:
-    st.markdown("**⚠️ 风险提示**")
-    
-    # 税务风险
-    st.markdown(
-        """
-        <div style='background:#FFF3E0; border-left:4px solid #FF9800; padding:10px 14px; margin:6px 0; border-radius:6px;'>
-            <strong style='color:#E65100;'>🔸 税务风险</strong>
-            <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
-                <li>咨询费¥450,000需核实是否有合同支撑，可能涉及税务稽查</li>
-                <li>跨境交易占比15%，需关注转让定价风险</li>
-            </ul>
-        </div>
-        """,
-        unsafe_allow_html=True
+    # 用Plotly画热力图风格的条形图
+    fig_anomaly = go.Figure(go.Bar(
+        x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
+        marker_color=[
+            '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
+            for v in anomaly_data["异常率(%)"]
+        ],
+        text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
+        textposition='outside',
+    ))
+    fig_anomaly.update_layout(
+        height=300,
+        xaxis_title="月结步骤",
+        yaxis_title="异常率 (%)",
+        margin=dict(l=60, r=20, t=20, b=80),
+        font=dict(size=11),
     )
+    st.plotly_chart(fig_anomaly, use_container_width=True)
+
+    # 异常详情表
+    st.markdown("**异常详情：**")
+    anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
+    anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
+    st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
+
+    # ── 业务变化分析报告（凭证→业务变化归纳 + 风险分析）──
+    st.markdown("---")
+    st.subheader("📊 AI业务变化分析报告")
+    st.caption("AI自动归纳本月海量凭证，生成业务变化Checklist，并提示税务和资金风险")
+
+    # 模拟业务变化分析数据
+    business_changes = [
+        {
+            "category": "供应商变化",
+            "items": [
+                "本月新增供应商3家（华东区域2家、华南区域1家）",
+                "供应商#SUP-0045本月交易额环比+120%，需核实是否有集中采购",
+                "供应商#SUP-0123账期从60天延长至90天，影响资金流"
+            ]
+        },
+        {
+            "category": "收入成本变动",
+            "items": [
+                "主营业务收入环比+15%，主要集中在华东区域",
+                "成本率从62%上升至68%，毛利率下降6个百分点",
+                "订单#SO-20260315收入已确认但成本未归集，金额¥284,500"
+            ]
+        },
+        {
+            "category": "费用波动",
+            "items": [
+                "差旅费环比+200%，集中在销售部门3月最后一周",
+                "办公费环比-30%，可能是季节性波动",
+                "咨询费单笔金额¥450,000，需核实是否有合同支撑"
+            ]
+        },
+        {
+            "category": "资产负债科目变动",
+            "items": [
+                "应收账款科目环比+45%，华东区域3家客户回款延迟",
+                "存货科目环比-12%，可能是库存周转加快或跌价准备计提",
+                "预付账款科目环比+80%，需核实是否有预付款项未及时核销"
+            ]
+        }
+    ]
+
+    # 显示业务变化Checklist
+    change_col1, change_col2 = st.columns([2, 1])
+    with change_col1:
+        st.markdown("**📋 业务变化Checklist**")
+        for change in business_changes:
+            with st.expander(f"🔹 {change['category']}", expanded=True):
+                for item in change["items"]:
+                    st.markdown(f"- {item}")
+
+    with change_col2:
+        st.markdown("**⚠️ 风险提示**")
     
-    # 资金风险
-    st.markdown(
-        """
-        <div style='background:#FFEBEE; border-left:4px solid #EF5350; padding:10px 14px; margin:6px 0; border-radius:6px;'>
-            <strong style='color:#C62828;'>🔸 资金风险</strong>
-            <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
-                <li>应收账款环比+45%，可能影响现金流，建议催收</li>
-                <li>供应商账期延长至90天，需关注资金周转压力</li>
-            </ul>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        # 税务风险
+        st.markdown(
+            """
+            <div style='background:#FFF3E0; border-left:4px solid #FF9800; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+                <strong style='color:#E65100;'>🔸 税务风险</strong>
+                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                    <li>咨询费¥450,000需核实是否有合同支撑，可能涉及税务稽查</li>
+                    <li>跨境交易占比15%，需关注转让定价风险</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     
-    # 合规风险
-    st.markdown(
-        """
-        <div style='background:#E8F5E9; border-left:4px solid #4CAF50; padding:10px 14px; margin:6px 0; border-radius:6px;'>
-            <strong style='color:#2E7D32;'>🔸 合规风险</strong>
-            <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
-                <li>订单#SO-20260315收入成本不匹配，需暂估入账</li>
-                <li>MM模块库存调整未生成财务凭证，需补录</li>
-            </ul>
-        </div>
-        """,
-        unsafe_allow_html=True
+        # 资金风险
+        st.markdown(
+            """
+            <div style='background:#FFEBEE; border-left:4px solid #EF5350; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+                <strong style='color:#C62828;'>🔸 资金风险</strong>
+                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                    <li>应收账款环比+45%，可能影响现金流，建议催收</li>
+                    <li>供应商账期延长至90天，需关注资金周转压力</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    
+        # 合规风险
+        st.markdown(
+            """
+            <div style='background:#E8F5E9; border-left:4px solid #4CAF50; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+                <strong style='color:#2E7D32;'>🔸 合规风险</strong>
+                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                    <li>订单#SO-20260315收入成本不匹配，需暂估入账</li>
+                    <li>MM模块库存调整未生成财务凭证，需补录</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    # Before vs After 对比图
+    st.markdown("---")
+    st.subheader("Before vs After：月结流程时间对比")
+
+    step_names = [s["name"] for s in current_steps]
+    traditional_times = [s["duration"] * 6 for s in current_steps]  # 传统方式耗时（分钟）
+    ai_times = [s["duration"] for s in current_steps]  # AI方式耗时
+
+    fig_compare = go.Figure()
+    fig_compare.add_trace(go.Bar(
+        name="传统方式（人工）", y=step_names, x=traditional_times,
+        orientation='h', marker_color='#EF5350', text=[f"{t}min" for t in traditional_times],
+        textposition='outside', textfont=dict(size=10)
+    ))
+    fig_compare.add_trace(go.Bar(
+        name="ClosePilot（AI Agent）", y=step_names, x=ai_times,
+        orientation='h', marker_color='#42A5F5', text=[f"{t}min" for t in ai_times],
+        textposition='outside', textfont=dict(size=10)
+    ))
+    fig_compare.update_layout(
+        barmode='group', height=420,
+        xaxis_title="耗时（分钟）",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=120, r=20, t=20, b=40),
+        font=dict(size=11)
     )
+    st.plotly_chart(fig_compare, use_container_width=True)
 
-# Before vs After 对比图
-st.markdown("---")
-st.subheader("Before vs After：月结流程时间对比")
+    # 汇总对比
+    total_traditional = sum(traditional_times)
+    total_ai = sum(ai_times)
+    save_pct = round((1 - total_ai / total_traditional) * 100)
+    summary_col1, summary_col2, summary_col3 = st.columns(3)
+    with summary_col1:
+        st.info(f"**传统方式总耗时**：{total_traditional} 分钟（约 {total_traditional//60} 小时）")
+    with summary_col2:
+        st.success(f"**AI方式总耗时**：{total_ai} 分钟（约 {total_ai//60} 小时）")
+    with summary_col3:
+        st.warning(f"**效率提升**：{save_pct}%")
 
-step_names = [s["name"] for s in current_steps]
-traditional_times = [s["duration"] * 6 for s in current_steps]  # 传统方式耗时（分钟）
-ai_times = [s["duration"] for s in current_steps]  # AI方式耗时
-
-fig_compare = go.Figure()
-fig_compare.add_trace(go.Bar(
-    name="传统方式（人工）", y=step_names, x=traditional_times,
-    orientation='h', marker_color='#EF5350', text=[f"{t}min" for t in traditional_times],
-    textposition='outside', textfont=dict(size=10)
-))
-fig_compare.add_trace(go.Bar(
-    name="ClosePilot（AI Agent）", y=step_names, x=ai_times,
-    orientation='h', marker_color='#42A5F5', text=[f"{t}min" for t in ai_times],
-    textposition='outside', textfont=dict(size=10)
-))
-fig_compare.update_layout(
-    barmode='group', height=420,
-    xaxis_title="耗时（分钟）",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    margin=dict(l=120, r=20, t=20, b=40),
-    font=dict(size=11)
-)
-st.plotly_chart(fig_compare, use_container_width=True)
-
-# 汇总对比
-total_traditional = sum(traditional_times)
-total_ai = sum(ai_times)
-save_pct = round((1 - total_ai / total_traditional) * 100)
-summary_col1, summary_col2, summary_col3 = st.columns(3)
-with summary_col1:
-    st.info(f"**传统方式总耗时**：{total_traditional} 分钟（约 {total_traditional//60} 小时）")
-with summary_col2:
-    st.success(f"**AI方式总耗时**：{total_ai} 分钟（约 {total_ai//60} 小时）")
-with summary_col3:
-    st.warning(f"**效率提升**：{save_pct}%")
-
-# ═══════════════════════════════════════
-# Tab 3: 系统架构
-# ═══════════════════════════════════════
+    # ═══════════════════════════════════════
+    # Tab 3: 系统架构
+    # ═══════════════════════════════════════
 with tab_architecture:
     st.subheader("️ ClosePilot 系统架构")
     st.caption("四层架构设计：配置化流程 + 通用Agent + 动作注册表 + SAP对接层")
