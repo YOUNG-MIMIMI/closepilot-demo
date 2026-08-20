@@ -872,50 +872,8 @@ steps:"""
         st.session_state.demo_phase = "idle"
         st.session_state.demo_sub = "start"
         st.session_state.demo_reject_reason = ""
+        st.session_state.precheck_done = False
         st.rerun()
-
-    # 流程步骤展示
-    total_steps = len(current_steps)
-    completed = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done")
-    progress = completed / total_steps
-
-    st.progress(progress, text=f"执行进度：{completed}/{total_steps} 子流程")
-
-    st.markdown("---")
-
-    # 步骤卡片
-    for step in current_steps:
-        status = st.session_state.process_status.get(step["id"], "pending")
-
-        if status == "done":
-            icon, status_text, status_cls = "✅", "已完成", "status-done"
-        elif status == "rejected":
-            icon, status_text, status_cls = "❌", "已驳回", "status-error"
-        elif status == "running":
-            icon, status_text, status_cls = "⏳", "执行中...", "status-running"
-        elif status == "confirm":
-            icon, status_text, status_cls = "⚠️", "需人工确认", "status-error"
-        else:
-            icon, status_text, status_cls = "⬜", "等待中", "status-pending"
-
-        risk_color = {"低": "#4CAF50", "中": "#FF9800", "高": "#F44336"}.get(step["risk"], "#999")
-        border_color = '#2E7D32' if status == 'done' else '#C62828' if status == 'rejected' else '#FFA000' if status in ('running', 'confirm') else '#E0E0E0'
-
-        st.markdown(f"""
-        <div class="step-card" style="border-left: 4px solid {border_color}; {'opacity: 0.5;' if status == 'pending' else ''}">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <strong>{icon} Step {step["id"]}: {step["name"]}</strong>
-                    <span style="color: #888; margin-left: 12px;"> {step["system"]}</span>
-                    <span style="color: #888; margin-left: 12px;">⏱ {step["duration"]}min</span>
-                </div>
-                <div>
-                    <span style="background: {risk_color}; color: white; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem;">风险: {step["risk"]}</span>
-                    <span class="{status_cls}" style="margin-left: 10px;">{status_text}</span>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
 
     # 演示推进逻辑：状态机，每次rerun推进一步
     if start_demo and st.session_state.demo_phase == "idle":
@@ -1002,6 +960,51 @@ steps:"""
                 st.session_state.demo_phase = "running"
                 st.session_state.demo_sub = "start"
                 st.rerun()
+
+    # 流程步骤展示（只在非precheck状态显示）
+    if st.session_state.demo_phase != "precheck":
+        # 流程步骤展示
+        total_steps = len(current_steps)
+        completed = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done")
+        progress = completed / total_steps
+
+        st.progress(progress, text=f"执行进度：{completed}/{total_steps} 子流程")
+
+        st.markdown("---")
+
+        # 步骤卡片
+        for step in current_steps:
+            status = st.session_state.process_status.get(step["id"], "pending")
+
+            if status == "done":
+                icon, status_text, status_cls = "✅", "已完成", "status-done"
+            elif status == "rejected":
+                icon, status_text, status_cls = "❌", "已驳回", "status-error"
+            elif status == "running":
+                icon, status_text, status_cls = "⏳", "执行中...", "status-running"
+            elif status == "confirm":
+                icon, status_text, status_cls = "⚠️", "需人工确认", "status-error"
+            else:
+                icon, status_text, status_cls = "⬜", "等待中", "status-pending"
+
+            risk_color = {"低": "#4CAF50", "中": "#FF9800", "高": "#F44336"}.get(step["risk"], "#999")
+            border_color = '#2E7D32' if status == 'done' else '#C62828' if status == 'rejected' else '#FFA000' if status in ('running', 'confirm') else '#E0E0E0'
+
+            st.markdown(f"""
+            <div class="step-card" style="border-left: 4px solid {border_color}; {'opacity: 0.5;' if status == 'pending' else ''}">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>{icon} Step {step["id"]}: {step["name"]}</strong>
+                        <span style="color: #888; margin-left: 12px;"> {step["system"]}</span>
+                        <span style="color: #888; margin-left: 12px;">⏱ {step["duration"]}min</span>
+                    </div>
+                    <div>
+                        <span style="background: {risk_color}; color: white; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem;">风险: {step["risk"]}</span>
+                        <span class="{status_cls}" style="margin-left: 10px;">{status_text}</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     if st.session_state.demo_phase == "running":
         idx = st.session_state.demo_step_idx
