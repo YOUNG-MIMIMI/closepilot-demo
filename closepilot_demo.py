@@ -627,31 +627,28 @@ with tab_main:
             ],
         }
 
-        # 左右分栏：聊天 + SAP GUI
-        chat_col, sap_col = st.columns([3, 2])
+        # 对话区（上）+ SAP终端（下）— 垂直布局
+        # 聊天历史显示
+        chat_container = st.container(height=420, border=True)
+        with chat_container:
+            if not st.session_state.chat_history:
+                st.markdown("""
+                <div style="text-align:center; padding: 60px 20px; color: #999;">
+                    <p style="font-size: 3rem; margin-bottom: 16px;">🤖</p>
+                    <p style="font-size: 1.1rem; margin-bottom: 8px;">你好！我是 ClosePilot，你的SAP智能月结助手。</p>
+                    <p>试试输入：<b>"帮我完成3月月结"</b></p>
+                </div>
+                """, unsafe_allow_html=True)
 
-        with chat_col:
-            # 聊天历史显示
-            chat_container = st.container(height=480, border=True)
-            with chat_container:
-                if not st.session_state.chat_history:
-                    st.markdown("""
-                    <div style="text-align:center; padding: 60px 20px; color: #999;">
-                        <p style="font-size: 3rem; margin-bottom: 16px;">🤖</p>
-                        <p style="font-size: 1.1rem; margin-bottom: 8px;">你好！我是 ClosePilot，你的SAP智能月结助手。</p>
-                        <p>试试输入：<b>"帮我完成3月月结"</b></p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            for msg in st.session_state.chat_history:
+                if msg["role"] == "user":
+                    st.markdown(f'<div class="chat-bubble bubble-user">👤 {msg["content"]}</div>', unsafe_allow_html=True)
+                else:
+                    badge = format_agent_badge(msg["agent"])
+                    st.markdown(f'<div class="chat-bubble bubble-agent">{badge} {msg["content"]}</div>', unsafe_allow_html=True)
 
-                for msg in st.session_state.chat_history:
-                    if msg["role"] == "user":
-                        st.markdown(f'<div class="chat-bubble bubble-user">👤 {msg["content"]}</div>', unsafe_allow_html=True)
-                    else:
-                        badge = format_agent_badge(msg["agent"])
-                        st.markdown(f'<div class="chat-bubble bubble-agent">{badge} {msg["content"]}</div>', unsafe_allow_html=True)
-
-                if st.session_state.chat_processing:
-                    st.markdown('<div class="chat-bubble bubble-agent"><span class="agent-badge badge-planner">🧠 Planner Agent</span> 思考中...</div>', unsafe_allow_html=True)
+            if st.session_state.chat_processing:
+                st.markdown('<div class="chat-bubble bubble-agent"><span class="agent-badge badge-planner">🧠 Planner Agent</span> 思考中...</div>', unsafe_allow_html=True)
 
             # 输入区 + 清空按钮
             input_col, clear_col = st.columns([5, 1])
@@ -700,135 +697,43 @@ with tab_main:
                     st.rerun()
 
         # 右侧：SAP GUI 模拟界面
-        with sap_col:
-            st.markdown("#### 🖥️ SAP 操作终端")
-            st.caption("ClosePilot Agent 实时操作记录")
+        st.markdown("#### 🖥️ SAP 操作终端")
+        st.caption("ClosePilot Agent 实时操作记录")
 
-            sap_container = st.container(height=480, border=True)
-            with sap_container:
-                if not st.session_state.sap_log:
-                    st.markdown("""
-                    <div style="text-align:center; padding: 40px 16px; color: #999; font-family: monospace;">
-                        <p style="font-size: 1.5rem; margin-bottom: 12px;">🖥️</p>
-                        <p>SAP GUI Terminal</p>
-                        <p style="font-size: 0.85rem;">等待 Agent 操作指令...</p>
-                        <p style="font-size: 0.8rem; color: #bbb;">SAP ERP 6.0 EHP8 | Client 100</p>
+        sap_container = st.container(height=480, border=True)
+        with sap_container:
+            if not st.session_state.sap_log:
+                st.markdown("""
+                <div style="text-align:center; padding: 40px 16px; color: #999; font-family: monospace;">
+                    <p style="font-size: 1.5rem; margin-bottom: 12px;">🖥️</p>
+                    <p>SAP GUI Terminal</p>
+                    <p style="font-size: 0.85rem;">等待 Agent 操作指令...</p>
+                    <p style="font-size: 0.8rem; color: #bbb;">SAP ERP 6.0 EHP8 | Client 100</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                for log_entry in st.session_state.sap_log:
+                    agent = log_entry["agent"]
+                    action = log_entry["action"]
+                    ts = log_entry["time"]
+                    agent_colors = {
+                        "planner": "#2E7D32",
+                        "executor": "#1565C0",
+                        "validator": "#E65100",
+                        "system": "#7B1FA2",
+                    }
+                    color = agent_colors.get(agent, "#666")
+                    st.markdown(f"""
+                    <div style="font-family: 'Courier New', monospace; font-size: 0.78rem; padding: 6px 10px; margin: 3px 0; background: #1a1a2e; border-radius: 4px; border-left: 3px solid {color};">
+                        <span style="color: #888;">[{ts}]</span>
+                        <span style="color: {color}; font-weight: 600;"> [{agent.upper()}]</span>
+                        <span style="color: #e0e0e0;"> {action}</span>
                     </div>
                     """, unsafe_allow_html=True)
-                else:
-                    for log_entry in st.session_state.sap_log:
-                        agent = log_entry["agent"]
-                        action = log_entry["action"]
-                        ts = log_entry["time"]
-                        agent_colors = {
-                            "planner": "#2E7D32",
-                            "executor": "#1565C0",
-                            "validator": "#E65100",
-                            "system": "#7B1FA2",
-                        }
-                        color = agent_colors.get(agent, "#666")
-                        st.markdown(f"""
-                        <div style="font-family: 'Courier New', monospace; font-size: 0.78rem; padding: 6px 10px; margin: 3px 0; background: #1a1a2e; border-radius: 4px; border-left: 3px solid {color};">
-                            <span style="color: #888;">[{ts}]</span>
-                            <span style="color: {color}; font-weight: 600;"> [{agent.upper()}]</span>
-                            <span style="color: #e0e0e0;"> {action}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
 
-                    # 自动滚动到底部的提示
-                    st.markdown("<div style='text-align: right; font-size: 0.7rem; color: #999; margin-top: 8px;'>🔽 实时滚动中...</div>", unsafe_allow_html=True)
+                # 自动滚动到底部的提示
+                st.markdown("<div style='text-align: right; font-size: 0.7rem; color: #999; margin-top: 8px;'>🔽 实时滚动中...</div>", unsafe_allow_html=True)
 
-        # ── 知识沉淀 + 智能联络面板（全宽显示）──
-        # 当聊天历史中包含差异/异常信息时，展示知识建议和联络选项
-        has_discrepancy = any(
-            "差异" in msg.get("content", "") or "异常" in msg.get("content", "") or "不匹配" in msg.get("content", "")
-            for msg in st.session_state.chat_history
-        )
-
-        if has_discrepancy and not st.session_state.chat_processing:
-            st.markdown("---")
-
-            # 知识沉淀建议
-            st.subheader("💡 智能建议（知识沉淀）")
-            st.caption("AI根据历史处理记录，自动匹配相似场景的解决方案")
-
-            for kb in KNOWLEDGE_BASE[:2]:  # 展示最相关的2条
-                confidence_color = "#4CAF50" if kb["confidence"] >= 90 else "#FF9800"
-                st.markdown(
-                    f"<div style='background:#F1F8E9; border:1px solid #AED581; border-radius:8px; "
-                    f"padding:12px 16px; margin:8px 0;'>"
-                    f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;'>"
-                    f"<span style='font-weight:700; color:#33691E;'>📚 {kb['scenario']}</span>"
-                    f"<span style='background:{confidence_color}; color:white; padding:2px 8px; "
-                    f"border-radius:10px; font-size:0.75rem;'>匹配度 {kb['confidence']}%</span>"
-                    f"</div>"
-                    f"<div style='font-size:0.88rem; color:#333; line-height:1.6;'>{kb['suggestion']}</div>"
-                    f"<div style='font-size:0.8rem; color:#666; margin-top:6px; font-style:italic;'>"
-                    f"📝 历史记录：{kb['history']}</div>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-
-            # 智能联络
-            st.markdown("---")
-            st.subheader("📧 智能联络（一键协调）")
-            st.caption("AI自动识别责任人并生成邮件草稿，可直接编辑后发送")
-
-            # 模拟第一个联络场景
-            contact_scenario = "银行流水差异"
-            contact = CONTACT_MAP[contact_scenario]
-
-            # 联系人信息
-            st.info(f"**📧 收件人**：{contact['person']}（{contact['department']}）\n"
-                    f"**收件地址**：{contact['email']}")
-
-            # 可编辑的邮件主题和正文
-            default_subject = "【月结确认】工行流水差异 ¥2,340 需确认"
-            default_body = (
-                "王明你好，\n\n"
-                "3月月结中发现以下差异需要确认：\n"
-                "• 工行2月15日流水 #28471，金额差异 ¥2,340，SAP无对应凭证\n"
-                "• 根据历史记录，该差异通常为银行手续费未入账\n\n"
-                "请确认：\n"
-                "1. 该笔款项是否为银行手续费？\n"
-                "2. 如确认，我将直接计入“财务费用-手续费”科目\n\n"
-                "请在3月31日前回复，谢谢！\n\n"
-                "— ClosePilot 自动发送"
-            )
-
-            email_subject = st.text_input("邮件主题", value=default_subject, key="email_subject")
-            email_body = st.text_area("邮件正文", value=default_body, height=220, key="email_body")
-
-            st.caption("💡 可直接在上方编辑邮件内容，确认无误后点击发送")
-            send_clicked = st.button("📧 发送邮件", type="primary", use_container_width=True, key="send_contact")
-
-            if send_clicked:
-                st.session_state.contact_log.append({
-                    "to": contact["email"],
-                    "to_name": contact["person"],
-                    "subject": email_subject,
-                    "scenario": contact_scenario,
-                    "time": time.strftime("%H:%M:%S"),
-                    "status": "已发送"
-                })
-                st.success(f"✅ 邮件已发送至 {contact['person']} <{contact['email']}>")
-                st.rerun()
-
-            # 显示已发送记录
-            if st.session_state.contact_log:
-                st.markdown("---")
-                st.subheader("📨 联络记录")
-                for log in st.session_state.contact_log:
-                    st.markdown(
-                        f"<div style='font-size:0.85rem; padding:8px 12px; margin:4px 0; "
-                        f"background:#F5F5F5; border-radius:6px;'>"
-                        f"<span style='color:#888;'>[{log['time']}]</span> "
-                        f"<span style='color:#1565C0; font-weight:600;'>→ {log.get('to_name', log['to'])}</span> "
-                        f"<span style='color:#333;'>{log.get('subject', log['scenario'])}</span> "
-                        f"<span style='color:#4CAF50; font-weight:600;'>{log['status']}</span>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
 
     # ═══════════════════════════════════════
     # Tab 2: 月结流程看板
@@ -1167,6 +1072,97 @@ with tab_main:
                 st.session_state.demo_sub = "start"
                 st.session_state.demo_reject_reason = ""
                 st.rerun()
+        # ── 知识沉淀 + 智能联络面板（全宽显示）──
+        # 当聊天历史中包含差异/异常信息时，展示知识建议和联络选项
+        has_discrepancy = any(
+            "差异" in msg.get("content", "") or "异常" in msg.get("content", "") or "不匹配" in msg.get("content", "")
+            for msg in st.session_state.chat_history
+        )
+
+        if has_discrepancy and not st.session_state.chat_processing:
+            st.markdown("---")
+
+            # 知识沉淀建议
+            st.subheader("💡 智能建议（知识沉淀）")
+            st.caption("AI根据历史处理记录，自动匹配相似场景的解决方案")
+
+            for kb in KNOWLEDGE_BASE[:2]:  # 展示最相关的2条
+                confidence_color = "#4CAF50" if kb["confidence"] >= 90 else "#FF9800"
+                st.markdown(
+                    f"<div style='background:#F1F8E9; border:1px solid #AED581; border-radius:8px; "
+                    f"padding:12px 16px; margin:8px 0;'>"
+                    f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;'>"
+                    f"<span style='font-weight:700; color:#33691E;'>📚 {kb['scenario']}</span>"
+                    f"<span style='background:{confidence_color}; color:white; padding:2px 8px; "
+                    f"border-radius:10px; font-size:0.75rem;'>匹配度 {kb['confidence']}%</span>"
+                    f"</div>"
+                    f"<div style='font-size:0.88rem; color:#333; line-height:1.6;'>{kb['suggestion']}</div>"
+                    f"<div style='font-size:0.8rem; color:#666; margin-top:6px; font-style:italic;'>"
+                    f"📝 历史记录：{kb['history']}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+            # 智能联络
+            st.markdown("---")
+            st.subheader("📧 智能联络（一键协调）")
+            st.caption("AI自动识别责任人并生成邮件草稿，可直接编辑后发送")
+
+            # 模拟第一个联络场景
+            contact_scenario = "银行流水差异"
+            contact = CONTACT_MAP[contact_scenario]
+
+            # 联系人信息
+            st.info(f"**📧 收件人**：{contact['person']}（{contact['department']}）\n"
+                    f"**收件地址**：{contact['email']}")
+
+            # 可编辑的邮件主题和正文
+            default_subject = "【月结确认】工行流水差异 ¥2,340 需确认"
+            default_body = (
+                "王明你好，\n\n"
+                "3月月结中发现以下差异需要确认：\n"
+                "• 工行2月15日流水 #28471，金额差异 ¥2,340，SAP无对应凭证\n"
+                "• 根据历史记录，该差异通常为银行手续费未入账\n\n"
+                "请确认：\n"
+                "1. 该笔款项是否为银行手续费？\n"
+                "2. 如确认，我将直接计入“财务费用-手续费”科目\n\n"
+                "请在3月31日前回复，谢谢！\n\n"
+                "— ClosePilot 自动发送"
+            )
+
+            email_subject = st.text_input("邮件主题", value=default_subject, key="email_subject")
+            email_body = st.text_area("邮件正文", value=default_body, height=220, key="email_body")
+
+            st.caption("💡 可直接在上方编辑邮件内容，确认无误后点击发送")
+            send_clicked = st.button("📧 发送邮件", type="primary", use_container_width=True, key="send_contact")
+
+            if send_clicked:
+                st.session_state.contact_log.append({
+                    "to": contact["email"],
+                    "to_name": contact["person"],
+                    "subject": email_subject,
+                    "scenario": contact_scenario,
+                    "time": time.strftime("%H:%M:%S"),
+                    "status": "已发送"
+                })
+                st.success(f"✅ 邮件已发送至 {contact['person']} <{contact['email']}>")
+                st.rerun()
+
+            # 显示已发送记录
+            if st.session_state.contact_log:
+                st.markdown("---")
+                st.subheader("📨 联络记录")
+                for log in st.session_state.contact_log:
+                    st.markdown(
+                        f"<div style='font-size:0.85rem; padding:8px 12px; margin:4px 0; "
+                        f"background:#F5F5F5; border-radius:6px;'>"
+                        f"<span style='color:#888;'>[{log['time']}]</span> "
+                        f"<span style='color:#1565C0; font-weight:600;'>→ {log.get('to_name', log['to'])}</span> "
+                        f"<span style='color:#333;'>{log.get('subject', log['scenario'])}</span> "
+                        f"<span style='color:#4CAF50; font-weight:600;'>{log['status']}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
 
     # 动态统计信息
     st.markdown("---")
