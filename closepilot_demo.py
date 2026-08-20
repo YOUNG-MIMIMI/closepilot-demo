@@ -962,10 +962,10 @@ steps:"""
                 st.rerun()
 
     # 流程步骤展示（只在非precheck状态显示）
+    total_steps = len(current_steps)
+    completed = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done")
+    
     if st.session_state.demo_phase != "precheck":
-        # 流程步骤展示
-        total_steps = len(current_steps)
-        completed = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done")
         progress = completed / total_steps
 
         st.progress(progress, text=f"执行进度：{completed}/{total_steps} 子流程")
