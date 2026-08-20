@@ -521,19 +521,84 @@ with col4:
 st.markdown("---")
 
 # ── Tab 布局 ─
-tab_chat, tab_dashboard, tab_architecture, tab_roi = st.tabs([
-    " Agent 交互演示",
-    "📊 月结流程看板",
-    "🏗️ 系统架构",
+tab_architecture, tab_roi = st.tabs([
+    "️ 系统架构",
     "💰 ROI 计算器"
 ])
 
+# ═════════════════════════════════════
+# 主界面：对话 + 看板（左右两栏）
 # ══════════════════════════════════════
-# Tab 1: 聊天交互 + SAP模拟界面
-# ═══════════════════════════════════════
-with tab_chat:
+
+# ── 公司选择 ──
+st.subheader("🏢 客户流程配置")
+st.caption("不同客户的月结流程不同，通过配置切换，无需改代码")
+
+template_col1, template_col2, template_col3 = st.columns(3)
+with template_col1:
+    select_manufacturing = st.button(
+        "🏭 制造集团A（10步）",
+        use_container_width=True,
+        type="primary" if st.session_state.client_template == "manufacturing" else "secondary",
+        key="tpl_mfg"
+    )
+with template_col2:
+    select_retail = st.button(
+        "🛒 零售集团B（12步）",
+        use_container_width=True,
+        type="primary" if st.session_state.client_template == "retail" else "secondary",
+        key="tpl_retail"
+    )
+with template_col3:
+    select_service = st.button(
+        "💼 服务集团C（8步）",
+        use_container_width=True,
+        type="primary" if st.session_state.client_template == "service" else "secondary",
+        key="tpl_service"
+    )
+
+if select_manufacturing:
+    st.session_state.client_template = "manufacturing"
+    st.session_state.process_status = {}
+    st.session_state.demo_step_idx = -1
+    st.session_state.demo_phase = "idle"
+    st.session_state.demo_sub = "start"
+    st.session_state.precheck_done = False
+    st.rerun()
+if select_retail:
+    st.session_state.client_template = "retail"
+    st.session_state.process_status = {}
+    st.session_state.demo_step_idx = -1
+    st.session_state.demo_phase = "idle"
+    st.session_state.demo_sub = "start"
+    st.session_state.precheck_done = False
+    st.rerun()
+if select_service:
+    st.session_state.client_template = "service"
+    st.session_state.process_status = {}
+    st.session_state.demo_step_idx = -1
+    st.session_state.demo_phase = "idle"
+    st.session_state.demo_sub = "start"
+    st.session_state.precheck_done = False
+    st.rerun()
+
+current_tpl = CLIENT_TEMPLATES[st.session_state.client_template]
+current_steps = current_tpl["data"]
+st.info(
+    f"**{current_tpl['name']}** — {current_tpl['steps']}个子流程 | "
+    f"涉及模块：{current_tpl['modules']} | "
+    f"特色：{current_tpl['features']}"
+)
+
+# ── 左右两栏：对话区 + 看板区 ──
+chat_col, dashboard_col = st.columns([3, 2])
+
+# ══════════════════════════════════════
+# 左侧：对话区 + SAP终端
+# ══════════════════════════════════════
+with chat_col:
     st.subheader("💬 与 ClosePilot 对话")
-    st.caption("输入财务指令，观察多Agent协同工作过程 | 右侧实时显示SAP系统操作")
+    st.caption("输入财务指令，观察多Agent协同工作过程")
 
     # SAP操作日志映射
     SAP_ACTION_MAP = {
@@ -767,71 +832,9 @@ with tab_chat:
 # ═══════════════════════════════════════
 # Tab 2: 月结流程看板
 # ═══════════════════════════════════════
-with tab_dashboard:
+with dashboard_col:
     st.subheader("📊 月结流程实时看板")
-    st.caption("模拟3月月结执行过程，观察10个子流程的实时状态")
-
-    # ── 客户模板切换（展示拓展性）──
-    st.markdown("---")
-    st.subheader("🏢 客户流程配置")
-    st.caption("不同客户的月结流程不同，通过配置切换，无需改代码")
-
-    template_col1, template_col2, template_col3 = st.columns(3)
-    with template_col1:
-        select_manufacturing = st.button(
-            "🏭 制造集团A（10步）",
-            use_container_width=True,
-            type="primary" if st.session_state.client_template == "manufacturing" else "secondary",
-            key="tpl_mfg"
-        )
-    with template_col2:
-        select_retail = st.button(
-            " 零售集团B（12步）",
-            use_container_width=True,
-            type="primary" if st.session_state.client_template == "retail" else "secondary",
-            key="tpl_retail"
-        )
-    with template_col3:
-        select_service = st.button(
-            "💼 服务集团C（8步）",
-            use_container_width=True,
-            type="primary" if st.session_state.client_template == "service" else "secondary",
-            key="tpl_service"
-        )
-
-    if select_manufacturing:
-        st.session_state.client_template = "manufacturing"
-        st.session_state.process_status = {}
-        st.session_state.demo_step_idx = -1
-        st.session_state.demo_phase = "idle"
-        st.session_state.demo_sub = "start"
-        st.session_state.precheck_done = False
-        st.rerun()
-    if select_retail:
-        st.session_state.client_template = "retail"
-        st.session_state.process_status = {}
-        st.session_state.demo_step_idx = -1
-        st.session_state.demo_phase = "idle"
-        st.session_state.demo_sub = "start"
-        st.session_state.precheck_done = False
-        st.rerun()
-    if select_service:
-        st.session_state.client_template = "service"
-        st.session_state.process_status = {}
-        st.session_state.demo_step_idx = -1
-        st.session_state.demo_phase = "idle"
-        st.session_state.demo_sub = "start"
-        st.session_state.precheck_done = False
-        st.rerun()
-
-    # 根据模板显示不同的流程说明
-    current_tpl = CLIENT_TEMPLATES[st.session_state.client_template]
-    current_steps = current_tpl["data"]
-    st.info(
-        f"**{current_tpl['name']}** — {current_tpl['steps']}个子流程 | "
-        f"涉及模块：{current_tpl['modules']} | "
-        f"特色：{current_tpl['features']}"
-    )
+    st.caption("模拟月结执行过程，观察子流程的实时状态")
 
     # 配置查看器
     with st.expander("📝 查看当前配置（YAML格式）", expanded=False):
@@ -1164,210 +1167,210 @@ steps:"""
             st.session_state.demo_reject_reason = ""
             st.rerun()
 
-    # 动态统计信息
-    st.markdown("---")
-    st.subheader("📈 执行统计")
+# 动态统计信息
+st.markdown("---")
+st.subheader("📈 执行统计")
 
-    running_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "running")
-    confirm_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "confirm")
-    auto_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] != "高")
-    manual_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] == "高")
+running_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "running")
+confirm_count = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "confirm")
+auto_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] != "高")
+manual_done = sum(1 for s in current_steps if st.session_state.process_status.get(s["id"]) == "done" and s["risk"] == "高")
 
-    stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-    with stat_col1:
-        elapsed = sum(s["duration"] for s in current_steps[:max(0, st.session_state.demo_step_idx + 1)] if st.session_state.process_status.get(s["id"]) in ("done", "confirm"))
-        st.metric("已用时间", f"{elapsed} 分钟", "传统方式需数天")
-    with stat_col2:
-        st.metric("已完成", f"{completed}/{total_steps}", f"自动化 {auto_done} + 人工确认 {manual_done}")
-    with stat_col3:
-        if completed > 0:
-            auto_rate = f"{round(auto_done / max(completed, 1) * 100)}%"
-        else:
-            auto_rate = "—"
-        st.metric("自动化率", auto_rate, "高风险节点需人工确认")
-    with stat_col4:
-        if running_count > 0:
-            st.metric("当前状态", "执行中", f"{running_count} 个流程运行中")
-        elif st.session_state.demo_phase == "done":
-            st.metric("当前状态", "全部完成", "🎉")
-        else:
-            st.metric("当前状态", "待启动", "点击开始演示")
+stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+with stat_col1:
+    elapsed = sum(s["duration"] for s in current_steps[:max(0, st.session_state.demo_step_idx + 1)] if st.session_state.process_status.get(s["id"]) in ("done", "confirm"))
+    st.metric("已用时间", f"{elapsed} 分钟", "传统方式需数天")
+with stat_col2:
+    st.metric("已完成", f"{completed}/{total_steps}", f"自动化 {auto_done} + 人工确认 {manual_done}")
+with stat_col3:
+    if completed > 0:
+        auto_rate = f"{round(auto_done / max(completed, 1) * 100)}%"
+    else:
+        auto_rate = "—"
+    st.metric("自动化率", auto_rate, "高风险节点需人工确认")
+with stat_col4:
+    if running_count > 0:
+        st.metric("当前状态", "执行中", f"{running_count} 个流程运行中")
+    elif st.session_state.demo_phase == "done":
+        st.metric("当前状态", "全部完成", "🎉")
+    else:
+        st.metric("当前状态", "待启动", "点击开始演示")
 
-    # ── 异常热力图 ──
-    st.markdown("---")
-    st.subheader("月结异常热力图（历史数据）")
-    st.caption("过去12个月月结执行统计，异常率 = 异常次数 / 执行总次数 × 100%")
+# ── 异常热力图 ──
+st.markdown("---")
+st.subheader("月结异常热力图（历史数据）")
+st.caption("过去12个月月结执行统计，异常率 = 异常次数 / 执行总次数 × 100%")
 
-    # 异常数据（从当前企业的历史记录计算）
-    _history = ANOMALY_HISTORY.get(st.session_state.client_template, {})
-    anomaly_data = {
-        "步骤": [s["name"] for s in current_steps],
-        "异常次数": [f"{_history.get(s['name'], {}).get('anomalies', 0)}/{_history.get(s['name'], {}).get('total', 12)}" for s in current_steps],
-        "异常率(%)": [round(_history.get(s['name'], {}).get('anomalies', 0) / _history.get(s['name'], {}).get('total', 12) * 100) for s in current_steps],
-        "平均处理时间(min)": [_history.get(s['name'], {}).get('avg_time', 10) for s in current_steps],
-        "常见问题": [_history.get(s['name'], {}).get('issue', '—') for s in current_steps],
+# 异常数据（从当前企业的历史记录计算）
+_history = ANOMALY_HISTORY.get(st.session_state.client_template, {})
+anomaly_data = {
+    "步骤": [s["name"] for s in current_steps],
+    "异常次数": [f"{_history.get(s['name'], {}).get('anomalies', 0)}/{_history.get(s['name'], {}).get('total', 12)}" for s in current_steps],
+    "异常率(%)": [round(_history.get(s['name'], {}).get('anomalies', 0) / _history.get(s['name'], {}).get('total', 12) * 100) for s in current_steps],
+    "平均处理时间(min)": [_history.get(s['name'], {}).get('avg_time', 10) for s in current_steps],
+    "常见问题": [_history.get(s['name'], {}).get('issue', '—') for s in current_steps],
+}
+anomaly_df = pd.DataFrame(anomaly_data)
+
+# 用Plotly画热力图风格的条形图
+fig_anomaly = go.Figure(go.Bar(
+    x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
+    marker_color=[
+        '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
+        for v in anomaly_data["异常率(%)"]
+    ],
+    text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
+    textposition='outside',
+))
+fig_anomaly.update_layout(
+    height=300,
+    xaxis_title="月结步骤",
+    yaxis_title="异常率 (%)",
+    margin=dict(l=60, r=20, t=20, b=80),
+    font=dict(size=11),
+)
+st.plotly_chart(fig_anomaly, use_container_width=True)
+
+# 异常详情表
+st.markdown("**异常详情：**")
+anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
+anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
+st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
+
+# ── 业务变化分析报告（凭证→业务变化归纳 + 风险分析）──
+st.markdown("---")
+st.subheader("📊 AI业务变化分析报告")
+st.caption("AI自动归纳本月海量凭证，生成业务变化Checklist，并提示税务和资金风险")
+
+# 模拟业务变化分析数据
+business_changes = [
+    {
+        "category": "供应商变化",
+        "items": [
+            "本月新增供应商3家（华东区域2家、华南区域1家）",
+            "供应商#SUP-0045本月交易额环比+120%，需核实是否有集中采购",
+            "供应商#SUP-0123账期从60天延长至90天，影响资金流"
+        ]
+    },
+    {
+        "category": "收入成本变动",
+        "items": [
+            "主营业务收入环比+15%，主要集中在华东区域",
+            "成本率从62%上升至68%，毛利率下降6个百分点",
+            "订单#SO-20260315收入已确认但成本未归集，金额¥284,500"
+        ]
+    },
+    {
+        "category": "费用波动",
+        "items": [
+            "差旅费环比+200%，集中在销售部门3月最后一周",
+            "办公费环比-30%，可能是季节性波动",
+            "咨询费单笔金额¥450,000，需核实是否有合同支撑"
+        ]
+    },
+    {
+        "category": "资产负债科目变动",
+        "items": [
+            "应收账款科目环比+45%，华东区域3家客户回款延迟",
+            "存货科目环比-12%，可能是库存周转加快或跌价准备计提",
+            "预付账款科目环比+80%，需核实是否有预付款项未及时核销"
+        ]
     }
-    anomaly_df = pd.DataFrame(anomaly_data)
+]
 
-    # 用Plotly画热力图风格的条形图
-    fig_anomaly = go.Figure(go.Bar(
-        x=anomaly_data["步骤"], y=anomaly_data["异常率(%)"],
-        marker_color=[
-            '#EF5350' if v >= 25 else '#FF9800' if v >= 10 else '#4CAF50'
-            for v in anomaly_data["异常率(%)"]
-        ],
-        text=[f"{v}%" for v in anomaly_data["异常率(%)"]],
-        textposition='outside',
-    ))
-    fig_anomaly.update_layout(
-        height=300,
-        xaxis_title="月结步骤",
-        yaxis_title="异常率 (%)",
-        margin=dict(l=60, r=20, t=20, b=80),
-        font=dict(size=11),
+# 显示业务变化Checklist
+change_col1, change_col2 = st.columns([2, 1])
+with change_col1:
+    st.markdown("**📋 业务变化Checklist**")
+    for change in business_changes:
+        with st.expander(f"🔹 {change['category']}", expanded=True):
+            for item in change["items"]:
+                st.markdown(f"- {item}")
+
+with change_col2:
+    st.markdown("**⚠️ 风险提示**")
+    
+    # 税务风险
+    st.markdown(
+        """
+        <div style='background:#FFF3E0; border-left:4px solid #FF9800; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+            <strong style='color:#E65100;'>🔸 税务风险</strong>
+            <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                <li>咨询费¥450,000需核实是否有合同支撑，可能涉及税务稽查</li>
+                <li>跨境交易占比15%，需关注转让定价风险</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-    st.plotly_chart(fig_anomaly, use_container_width=True)
-
-    # 异常详情表
-    st.markdown("**异常详情：**")
-    anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
-    anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
-    st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
-
-    # ── 业务变化分析报告（凭证→业务变化归纳 + 风险分析）──
-    st.markdown("---")
-    st.subheader("📊 AI业务变化分析报告")
-    st.caption("AI自动归纳本月海量凭证，生成业务变化Checklist，并提示税务和资金风险")
-
-    # 模拟业务变化分析数据
-    business_changes = [
-        {
-            "category": "供应商变化",
-            "items": [
-                "本月新增供应商3家（华东区域2家、华南区域1家）",
-                "供应商#SUP-0045本月交易额环比+120%，需核实是否有集中采购",
-                "供应商#SUP-0123账期从60天延长至90天，影响资金流"
-            ]
-        },
-        {
-            "category": "收入成本变动",
-            "items": [
-                "主营业务收入环比+15%，主要集中在华东区域",
-                "成本率从62%上升至68%，毛利率下降6个百分点",
-                "订单#SO-20260315收入已确认但成本未归集，金额¥284,500"
-            ]
-        },
-        {
-            "category": "费用波动",
-            "items": [
-                "差旅费环比+200%，集中在销售部门3月最后一周",
-                "办公费环比-30%，可能是季节性波动",
-                "咨询费单笔金额¥450,000，需核实是否有合同支撑"
-            ]
-        },
-        {
-            "category": "资产负债科目变动",
-            "items": [
-                "应收账款科目环比+45%，华东区域3家客户回款延迟",
-                "存货科目环比-12%，可能是库存周转加快或跌价准备计提",
-                "预付账款科目环比+80%，需核实是否有预付款项未及时核销"
-            ]
-        }
-    ]
-
-    # 显示业务变化Checklist
-    change_col1, change_col2 = st.columns([2, 1])
-    with change_col1:
-        st.markdown("**📋 业务变化Checklist**")
-        for change in business_changes:
-            with st.expander(f"🔹 {change['category']}", expanded=True):
-                for item in change["items"]:
-                    st.markdown(f"- {item}")
-
-    with change_col2:
-        st.markdown("**⚠️ 风险提示**")
-        
-        # 税务风险
-        st.markdown(
-            """
-            <div style='background:#FFF3E0; border-left:4px solid #FF9800; padding:10px 14px; margin:6px 0; border-radius:6px;'>
-                <strong style='color:#E65100;'>🔸 税务风险</strong>
-                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
-                    <li>咨询费¥450,000需核实是否有合同支撑，可能涉及税务稽查</li>
-                    <li>跨境交易占比15%，需关注转让定价风险</li>
-                </ul>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # 资金风险
-        st.markdown(
-            """
-            <div style='background:#FFEBEE; border-left:4px solid #EF5350; padding:10px 14px; margin:6px 0; border-radius:6px;'>
-                <strong style='color:#C62828;'>🔸 资金风险</strong>
-                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
-                    <li>应收账款环比+45%，可能影响现金流，建议催收</li>
-                    <li>供应商账期延长至90天，需关注资金周转压力</li>
-                </ul>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # 合规风险
-        st.markdown(
-            """
-            <div style='background:#E8F5E9; border-left:4px solid #4CAF50; padding:10px 14px; margin:6px 0; border-radius:6px;'>
-                <strong style='color:#2E7D32;'>🔸 合规风险</strong>
-                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
-                    <li>订单#SO-20260315收入成本不匹配，需暂估入账</li>
-                    <li>MM模块库存调整未生成财务凭证，需补录</li>
-                </ul>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # Before vs After 对比图
-    st.markdown("---")
-    st.subheader("Before vs After：月结流程时间对比")
-
-    step_names = [s["name"] for s in current_steps]
-    traditional_times = [s["duration"] * 6 for s in current_steps]  # 传统方式耗时（分钟）
-    ai_times = [s["duration"] for s in current_steps]  # AI方式耗时
-
-    fig_compare = go.Figure()
-    fig_compare.add_trace(go.Bar(
-        name="传统方式（人工）", y=step_names, x=traditional_times,
-        orientation='h', marker_color='#EF5350', text=[f"{t}min" for t in traditional_times],
-        textposition='outside', textfont=dict(size=10)
-    ))
-    fig_compare.add_trace(go.Bar(
-        name="ClosePilot（AI Agent）", y=step_names, x=ai_times,
-        orientation='h', marker_color='#42A5F5', text=[f"{t}min" for t in ai_times],
-        textposition='outside', textfont=dict(size=10)
-    ))
-    fig_compare.update_layout(
-        barmode='group', height=420,
-        xaxis_title="耗时（分钟）",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(l=120, r=20, t=20, b=40),
-        font=dict(size=11)
+    
+    # 资金风险
+    st.markdown(
+        """
+        <div style='background:#FFEBEE; border-left:4px solid #EF5350; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+            <strong style='color:#C62828;'>🔸 资金风险</strong>
+            <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                <li>应收账款环比+45%，可能影响现金流，建议催收</li>
+                <li>供应商账期延长至90天，需关注资金周转压力</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-    st.plotly_chart(fig_compare, use_container_width=True)
+    
+    # 合规风险
+    st.markdown(
+        """
+        <div style='background:#E8F5E9; border-left:4px solid #4CAF50; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+            <strong style='color:#2E7D32;'>🔸 合规风险</strong>
+            <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                <li>订单#SO-20260315收入成本不匹配，需暂估入账</li>
+                <li>MM模块库存调整未生成财务凭证，需补录</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # 汇总对比
-    total_traditional = sum(traditional_times)
-    total_ai = sum(ai_times)
-    save_pct = round((1 - total_ai / total_traditional) * 100)
-    summary_col1, summary_col2, summary_col3 = st.columns(3)
-    with summary_col1:
-        st.info(f"**传统方式总耗时**：{total_traditional} 分钟（约 {total_traditional//60} 小时）")
-    with summary_col2:
-        st.success(f"**AI方式总耗时**：{total_ai} 分钟（约 {total_ai//60} 小时）")
-    with summary_col3:
-        st.warning(f"**效率提升**：{save_pct}%")
+# Before vs After 对比图
+st.markdown("---")
+st.subheader("Before vs After：月结流程时间对比")
+
+step_names = [s["name"] for s in current_steps]
+traditional_times = [s["duration"] * 6 for s in current_steps]  # 传统方式耗时（分钟）
+ai_times = [s["duration"] for s in current_steps]  # AI方式耗时
+
+fig_compare = go.Figure()
+fig_compare.add_trace(go.Bar(
+    name="传统方式（人工）", y=step_names, x=traditional_times,
+    orientation='h', marker_color='#EF5350', text=[f"{t}min" for t in traditional_times],
+    textposition='outside', textfont=dict(size=10)
+))
+fig_compare.add_trace(go.Bar(
+    name="ClosePilot（AI Agent）", y=step_names, x=ai_times,
+    orientation='h', marker_color='#42A5F5', text=[f"{t}min" for t in ai_times],
+    textposition='outside', textfont=dict(size=10)
+))
+fig_compare.update_layout(
+    barmode='group', height=420,
+    xaxis_title="耗时（分钟）",
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    margin=dict(l=120, r=20, t=20, b=40),
+    font=dict(size=11)
+)
+st.plotly_chart(fig_compare, use_container_width=True)
+
+# 汇总对比
+total_traditional = sum(traditional_times)
+total_ai = sum(ai_times)
+save_pct = round((1 - total_ai / total_traditional) * 100)
+summary_col1, summary_col2, summary_col3 = st.columns(3)
+with summary_col1:
+    st.info(f"**传统方式总耗时**：{total_traditional} 分钟（约 {total_traditional//60} 小时）")
+with summary_col2:
+    st.success(f"**AI方式总耗时**：{total_ai} 分钟（约 {total_ai//60} 小时）")
+with summary_col3:
+    st.warning(f"**效率提升**：{save_pct}%")
 
 # ═══════════════════════════════════════
 # Tab 3: 系统架构
