@@ -124,9 +124,11 @@ if "process_status" not in st.session_state:
 if "demo_step_idx" not in st.session_state:
     st.session_state.demo_step_idx = -1
 if "demo_phase" not in st.session_state:
-    st.session_state.demo_phase = "idle"  # idle, running, confirm, revise, reconfirm, done
+    st.session_state.demo_phase = "idle"  # idle, precheck, running, confirm, revise, reconfirm, done
 if "demo_sub" not in st.session_state:
     st.session_state.demo_sub = "start"  # start → wait → advance
+if "precheck_done" not in st.session_state:
+    st.session_state.precheck_done = False
 if "demo_reject_reason" not in st.session_state:
     st.session_state.demo_reject_reason = ""
 if "roi_revenue" not in st.session_state:
@@ -803,6 +805,7 @@ with tab_dashboard:
         st.session_state.demo_step_idx = -1
         st.session_state.demo_phase = "idle"
         st.session_state.demo_sub = "start"
+        st.session_state.precheck_done = False
         st.rerun()
     if select_retail:
         st.session_state.client_template = "retail"
@@ -810,6 +813,7 @@ with tab_dashboard:
         st.session_state.demo_step_idx = -1
         st.session_state.demo_phase = "idle"
         st.session_state.demo_sub = "start"
+        st.session_state.precheck_done = False
         st.rerun()
     if select_service:
         st.session_state.client_template = "service"
@@ -817,6 +821,7 @@ with tab_dashboard:
         st.session_state.demo_step_idx = -1
         st.session_state.demo_phase = "idle"
         st.session_state.demo_sub = "start"
+        st.session_state.precheck_done = False
         st.rerun()
 
     # 根据模板显示不同的流程说明
@@ -914,10 +919,89 @@ steps:"""
 
     # 演示推进逻辑：状态机，每次rerun推进一步
     if start_demo and st.session_state.demo_phase == "idle":
-        st.session_state.demo_phase = "running"
+        st.session_state.demo_phase = "precheck"
         st.session_state.demo_step_idx = 0
         st.session_state.demo_sub = "start"
         st.rerun()
+
+    # ── 前置完整性校验（月结预检）──
+    if st.session_state.demo_phase == "precheck":
+        st.markdown("---")
+        st.subheader("🔍 AI月结前置预检")
+        st.caption("在月结正式开始前，AI自动扫描上月所有凭证，做多维度分析，提前发现缺失和错误")
+
+        # 模拟预检过程
+        precheck_container = st.container(height=400, border=True)
+        with precheck_container:
+            if not st.session_state.precheck_done:
+                # 显示预检动画
+                st.info("🔄 AI正在扫描上月凭证数据...")
+                time.sleep(1.5)
+                
+                # 生成预检报告（模拟数据）
+                precheck_items = [
+                    {
+                        "dimension": "时间维度",
+                        "item": "应收账款科目环比+45%",
+                        "severity": "高",
+                        "detail": "华东区域3家客户回款延迟，主要集中在应收账款-华东科目",
+                        "suggestion": "建议检查华东区域客户回款记录，确认是否需要催收或调整坏账准备"
+                    },
+                    {
+                        "dimension": "结构维度",
+                        "item": "差旅费占总费用比例异常（15% vs 正常5%）",
+                        "severity": "中",
+                        "detail": "销售部门差旅费环比+200%，主要集中在3月最后一周",
+                        "suggestion": "建议核实销售部门差旅费报销凭证，确认是否有集中报销情况"
+                    },
+                    {
+                        "dimension": "完整性维度",
+                        "item": "MM模块库存调整未生成财务凭证",
+                        "severity": "高",
+                        "detail": "3月15日库存调整单#INV-20260315-003，金额¥234,000，FI模块无对应凭证",
+                        "suggestion": "建议检查MM模块凭证生成配置，或手动补录财务凭证"
+                    },
+                    {
+                        "dimension": "业务维度",
+                        "item": "某模块应产生凭证但未产生",
+                        "severity": "中",
+                        "detail": "CO模块成本中心#CC-0045分摊基数异常，可能导致分摊不准确",
+                        "suggestion": "建议核实成本中心#CC-0045的分摊基数设置"
+                    }
+                ]
+                
+                st.session_state.precheck_items = precheck_items
+                st.session_state.precheck_done = True
+                st.rerun()
+            else:
+                # 显示预检报告
+                st.success("✅ 预检完成，发现以下异常：")
+                
+                precheck_items = st.session_state.get("precheck_items", [])
+                for i, item in enumerate(precheck_items):
+                    severity_color = "#EF5350" if item["severity"] == "高" else "#FF9800" if item["severity"] == "中" else "#4CAF50"
+                    st.markdown(
+                        f"""
+                        <div style='background:#FAFAFA; border-left:4px solid {severity_color}; padding:12px 16px; margin:8px 0; border-radius:6px;'>
+                            <div style='display:flex; justify-content:space-between; align-items:center;'>
+                                <strong>【{item['dimension']}】{item['item']}</strong>
+                                <span style='background:{severity_color}; color:white; padding:2px 8px; border-radius:8px; font-size:0.75rem;'>严重程度：{item['severity']}</span>
+                            </div>
+                            <div style='color:#666; font-size:0.88rem; margin-top:8px;'>
+                                <strong>详情：</strong>{item['detail']}<br>
+                                <strong>建议：</strong>{item['suggestion']}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+        # 预检完成按钮
+        if st.session_state.precheck_done:
+            if st.button("✅ 预检完成，开始正式月结流程", type="primary", use_container_width=True):
+                st.session_state.demo_phase = "running"
+                st.session_state.demo_sub = "start"
+                st.rerun()
 
     if st.session_state.demo_phase == "running":
         idx = st.session_state.demo_step_idx
@@ -1146,6 +1230,101 @@ steps:"""
     anomaly_display_df = anomaly_df[["步骤", "异常次数", "异常率(%)", "平均处理时间(min)", "常见问题"]].copy()
     anomaly_display_df.columns = ["步骤", "异常次数(近12月)", "异常率", "平均处理时间", "常见问题"]
     st.dataframe(anomaly_display_df, use_container_width=True, hide_index=True)
+
+    # ── 业务变化分析报告（凭证→业务变化归纳 + 风险分析）──
+    st.markdown("---")
+    st.subheader("📊 AI业务变化分析报告")
+    st.caption("AI自动归纳本月海量凭证，生成业务变化Checklist，并提示税务和资金风险")
+
+    # 模拟业务变化分析数据
+    business_changes = [
+        {
+            "category": "供应商变化",
+            "items": [
+                "本月新增供应商3家（华东区域2家、华南区域1家）",
+                "供应商#SUP-0045本月交易额环比+120%，需核实是否有集中采购",
+                "供应商#SUP-0123账期从60天延长至90天，影响资金流"
+            ]
+        },
+        {
+            "category": "收入成本变动",
+            "items": [
+                "主营业务收入环比+15%，主要集中在华东区域",
+                "成本率从62%上升至68%，毛利率下降6个百分点",
+                "订单#SO-20260315收入已确认但成本未归集，金额¥284,500"
+            ]
+        },
+        {
+            "category": "费用波动",
+            "items": [
+                "差旅费环比+200%，集中在销售部门3月最后一周",
+                "办公费环比-30%，可能是季节性波动",
+                "咨询费单笔金额¥450,000，需核实是否有合同支撑"
+            ]
+        },
+        {
+            "category": "资产负债科目变动",
+            "items": [
+                "应收账款科目环比+45%，华东区域3家客户回款延迟",
+                "存货科目环比-12%，可能是库存周转加快或跌价准备计提",
+                "预付账款科目环比+80%，需核实是否有预付款项未及时核销"
+            ]
+        }
+    ]
+
+    # 显示业务变化Checklist
+    change_col1, change_col2 = st.columns([2, 1])
+    with change_col1:
+        st.markdown("**📋 业务变化Checklist**")
+        for change in business_changes:
+            with st.expander(f"🔹 {change['category']}", expanded=True):
+                for item in change["items"]:
+                    st.markdown(f"- {item}")
+
+    with change_col2:
+        st.markdown("**⚠️ 风险提示**")
+        
+        # 税务风险
+        st.markdown(
+            """
+            <div style='background:#FFF3E0; border-left:4px solid #FF9800; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+                <strong style='color:#E65100;'>🔸 税务风险</strong>
+                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                    <li>咨询费¥450,000需核实是否有合同支撑，可能涉及税务稽查</li>
+                    <li>跨境交易占比15%，需关注转让定价风险</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # 资金风险
+        st.markdown(
+            """
+            <div style='background:#FFEBEE; border-left:4px solid #EF5350; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+                <strong style='color:#C62828;'>🔸 资金风险</strong>
+                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                    <li>应收账款环比+45%，可能影响现金流，建议催收</li>
+                    <li>供应商账期延长至90天，需关注资金周转压力</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # 合规风险
+        st.markdown(
+            """
+            <div style='background:#E8F5E9; border-left:4px solid #4CAF50; padding:10px 14px; margin:6px 0; border-radius:6px;'>
+                <strong style='color:#2E7D32;'>🔸 合规风险</strong>
+                <ul style='margin:6px 0; padding-left:20px; font-size:0.88rem;'>
+                    <li>订单#SO-20260315收入成本不匹配，需暂估入账</li>
+                    <li>MM模块库存调整未生成财务凭证，需补录</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     # Before vs After 对比图
     st.markdown("---")
