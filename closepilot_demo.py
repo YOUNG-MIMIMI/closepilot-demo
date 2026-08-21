@@ -258,6 +258,37 @@ AGENT_RESPONSES = {
     ],
 }
 
+
+def generate_yuejie_responses(steps):
+    """根据当前客户模板的步骤数据，动态生成月结对话回复"""
+    n = len(steps)
+    responses = []
+
+    # ── Planner 规划阶段 ──
+    step_names = " → ".join(s["name"] for s in steps[:5])
+    if n > 5:
+        step_names += " → ..."
+    responses.append(("planner", f"收到指令，正在解析月结任务... 识别到{n}个子流程，涉及{len(set(s['system'] for s in steps))}个模块。"))
+    responses.append(("planner", f"任务拆解完成，生成执行计划：{step_names}。"))
+    high_risk = [s["name"] for s in steps if s["risk"] == "高"]
+    if high_risk:
+        responses.append(("planner", f"风险评估：{'、'.join(high_risk)}为高风险节点，已标记需人工确认。"))
+
+    # ── Executor 逐步执行 ──
+    for i, step in enumerate(steps):
+        responses.append(("executor", f"开始执行 Step {i+1}/{n}：{step['name']}... 连接{step['system']}模块。"))
+        if step["risk"] == "高":
+            responses.append(("executor", f"Step {i+1} ⚠️ — 高风险操作，请求人工确认。"))
+            responses.append(("validator", f"Step {i+1} 校验 — 拟执行「{step['name']}」，请确认是否执行。"))
+            responses.append(("executor", f"人工已确认，Step {i+1} 执行完成 ✅ — {step['name']}已过账。"))
+        else:
+            responses.append(("executor", f"Step {i+1} 完成 ✅ — {step['name']}已完成。"))
+
+    # ── 最终汇总 ──
+    responses.append(("validator", f"最终校验 — 所有{n}个子流程数据一致性检查通过，借贷平衡，差异率 0.03%（阈值 0.1%）。"))
+    responses.append(("system", f"🎉 月结流程全部完成！共{n}个子流程，总耗时 {sum(s['duration'] for s in steps)}分钟（传统方式需数天）。"))
+    return responses
+
 DEFAULT_RESPONSE = [
     ("planner", "收到指令，正在分析您的需求..."),
     ("executor", "正在执行相关操作..."),
@@ -666,7 +697,20 @@ with tab_main:
             # 聊天处理逻辑
             if user_input and not st.session_state.chat_processing:
                 st.session_state.chat_history.append({"role": "user", "content": user_input})
-                st.session_state.chat_responses = get_agent_response(user_input, use_ai=use_ai)
+
+                # 检测是否为月结触发词 → 同时启动看板
+                trigger_keywords = ["月结", "月报", "结账", "关账", "close", "开始", "帮我完成"]
+                is_yuejie = any(kw in user_input.lower() for kw in trigger_keywords)
+                if is_yuejie and st.session_state.demo_phase == "idle":
+                    st.session_state.demo_phase = "precheck"
+                    st.session_state.demo_step_idx = 0
+                    st.session_state.demo_sub = "start"
+
+                # 月结用动态回复（读取实际步骤数据），其他用硬编码
+                if is_yuejie:
+                    st.session_state.chat_responses = generate_yuejie_responses(current_steps)
+                else:
+                    st.session_state.chat_responses = get_agent_response(user_input, use_ai=use_ai)
                 st.session_state.chat_response_idx = 0
                 st.session_state.chat_processing = True
                 st.rerun()
@@ -764,7 +808,7 @@ with tab_main:
 
         # 控制按钮
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 3])
-        is_running = st.session_state.demo_phase in ("running", "confirm")
+        is_running = st.session_state.demo_phase in ("running", "confirm", "precheck")
         with col_btn1:
             start_demo = st.button(
                 "▶ 开始演示" if not is_running else "⏳ 执行中...",
@@ -782,6 +826,12 @@ with tab_main:
             st.session_state.demo_sub = "start"
             st.session_state.demo_reject_reason = ""
             st.session_state.precheck_done = False
+            # 同时重置对话
+            st.session_state.chat_history = []
+            st.session_state.chat_responses = []
+            st.session_state.chat_response_idx = 0
+            st.session_state.chat_processing = False
+            st.session_state.sap_log = []
             st.rerun()
 
         # 演示推进逻辑：状态机，每次rerun推进一步
@@ -803,7 +853,7 @@ with tab_main:
                 if not st.session_state.precheck_done:
                     # 显示预检动画
                     st.info("🔄 AI正在扫描上月凭证数据...")
-                    time.sleep(1.5)
+                    time.sleep(0.8)
                 
                     # 生成预检报告（模拟数据）
                     precheck_items = [
@@ -863,12 +913,13 @@ with tab_main:
                             unsafe_allow_html=True
                         )
 
-            # 预检完成按钮
+            # 预检完成后自动过渡到正式流程
             if st.session_state.precheck_done:
-                if st.button("✅ 预检完成，开始正式月结流程", type="primary", use_container_width=True):
-                    st.session_state.demo_phase = "running"
-                    st.session_state.demo_sub = "start"
-                    st.rerun()
+                st.info("✅ 预检完成，2秒后自动进入正式月结流程...")
+                time.sleep(1.5)
+                st.session_state.demo_phase = "running"
+                st.session_state.demo_sub = "start"
+                st.rerun()
 
         # 流程步骤展示（只在非precheck状态显示）
         total_steps = len(current_steps)
